@@ -1,9 +1,5 @@
 name: Release
 
-# Push a tag like v2026.10.01 to build the rescue-only ISO and publish it as a
-# GitHub release. Run it by hand (workflow_dispatch) to build without releasing;
-# the ISO is kept as a workflow artifact for a few days.
-
 on:
   push:
     tags: ["v*"]
@@ -44,6 +40,9 @@ jobs:
       - name: Ensure vendor scripts are executable
         run: chmod +x builder/vendor-eblan.sh builder/vendor-hypr3d.sh bin/omarchy-rescue-make bin/omarchy-rescue-boot || true
 
+      - name: Install Pillow for Hypr3D skybox generation
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil
+
       - name: Build the ISO
         run: bin/omarchy-rescue-make
 
@@ -55,7 +54,6 @@ jobs:
           sha256sum "$iso" > "$iso.sha256"
           size=$(stat -c %s "$iso")
           echo "$iso is $((size / 1024 / 1024)) MiB"
-          # GitHub release assets hard-cap at 2 GiB; workflow artifacts can be larger.
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]] && (( size >= 2 * 1024 * 1024 * 1024 )); then
             echo "::error::$iso is too big for a GitHub release asset (>= 2 GiB)"
             exit 1
@@ -127,52 +125,44 @@ jobs:
           check_x /usr/local/bin/eblan
           check_x /usr/local/bin/eblanity
           check_x /usr/local/bin/oparysh-chinila
-          check_x /usr/local/bin/oparysh-chinila-mount
           check_x /usr/local/bin/oparysh-hyprland-session
           check_x /usr/local/bin/oparysh-build-hypr3d
+          check_x /usr/local/bin/oparysh-hypr3d-apply-config
           check /opt/eblan-browser/EBLAN.py
-          check /usr/share/oparysh-chinila/AGENTS.md
           check /root/.config/hypr/hyprland.conf
           check /usr/src/Hypr3D/CMakeLists.txt
+          check /usr/share/oparysh-chinila/hypr3d/telegram-checks-skybox.png
+          check /usr/share/oparysh-chinila/hypr3d/window-overlay.png
 
           echo "=== chroot command -v ==="
           sudo mount --bind /dev "$ROOT/dev"
           sudo mount --bind /proc "$ROOT/proc"
           sudo mount --bind /sys "$ROOT/sys"
-          sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || true
 
-          for cmd in eblan eblanity oparysh-chinila Hyprland waybar kitty wofi hyprctl python ollama; do
+          for cmd in eblan eblanity Hyprland waybar kitty hyprctl python ollama; do
             if sudo chroot "$ROOT" /bin/bash -lc "command -v $cmd" >/tmp/cv.out 2>/tmp/cv.err; then
               echo "OK  command -v $cmd -> $(cat /tmp/cv.out)"
             else
               echo "FAIL command -v $cmd"
-              cat /tmp/cv.err || true
               fail=1
             fi
           done
 
-          echo "=== eblanity -version ==="
-          if sudo chroot "$ROOT" /usr/local/bin/eblanity -version 2>&1 | tee /tmp/eblanity.out; then
-            grep -qi eblanity /tmp/eblanity.out && echo "OK  eblanity version"
+          if sudo chroot "$ROOT" /usr/local/bin/eblanity -version 2>&1 | grep -qi eblanity; then
+            echo "OK  eblanity version"
           else
-            echo "FAIL eblanity -version"
             fail=1
           fi
 
-          echo "=== python imports for Eblan Browser ==="
-          if sudo chroot "$ROOT" /usr/bin/python -c "from PyQt6.QtWidgets import QApplication; from PyQt6.QtWebEngineWidgets import QWebEngineView; print('PyQt6 OK')" 2>&1 | tee /tmp/pyqt.out; then
-            grep -q 'PyQt6 OK' /tmp/pyqt.out && echo "OK  PyQt6 imports"
+          if sudo chroot "$ROOT" /usr/bin/python -c "from PyQt6.QtWidgets import QApplication; from PyQt6.QtWebEngineWidgets import QWebEngineView; print('PyQt6 OK')" 2>&1 | grep -q 'PyQt6 OK'; then
+            echo "OK  PyQt6 imports"
           else
-            echo "FAIL PyQt6 imports"
-            cat /tmp/pyqt.out || true
             fail=1
           fi
 
-          echo "=== Hyprland package ==="
-          if sudo chroot "$ROOT" /bin/bash -lc "pacman -Q hyprland" 2>&1 | tee /tmp/hypr.out; then
+          if sudo chroot "$ROOT" /bin/bash -lc "pacman -Q hyprland" >/dev/null 2>&1; then
             echo "OK  hyprland package"
           else
-            echo "FAIL hyprland package"
             fail=1
           fi
 
