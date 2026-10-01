@@ -1,87 +1,80 @@
 # Oparysh Chinila
 
-The Oparysh ISO with a rescue mode: rescue tools plus Eblan Browser, Eblanity, and local ai models (halal) in a live console.
+Rescue ISO: **Hyprland** desktop with Eblan Browser, Eblanity, Ollama, and a pile of recovery tools. Boots straight into a graphical session.
 
-A rescue USB for Oparysh: a live Oparysh console with the rescue tools you'd reach for from SystemRescue, plus **Eblan Browser**, **Eblanity CLI**, and local halal AI models ready **offline** — no internet needed after the ISO is built.
+Download from [Releases](https://github.com/vcvkk/oparysh-chinila/releases) (or Actions artifacts), verify `.sha256`, write to USB.
 
-![Oparysh Chinila welcome screen](docs/screenshots/welcome.png)
+## Boot entries
 
-Download the ISO from [Releases](https://github.com/vcvkk/oparysh-chinila/releases),
-check it against its `.sha256`, and write it to a USB stick. It boots into:
+- **Oparysh Chinila / Omarchy Rescue** (default): **Hyprland** on tty1 (full Wayland stack).
+- **basic console**: plain getty + `nomodeset` if graphics die.
 
-- **Oparysh Chinila** (default): a kmscon console on tty1 with JetBrains Mono,
-  truecolor, and the Tokyo Night palette, no desktop needed.
-- **Oparysh Chinila, basic console**: the plain kernel console with `nomodeset`,
-  for GPUs kmscon can't drive.
+## Desktop (Hyprland)
+
+Shipped stack includes Hyprland, waybar, kitty, wofi, thunar, pipewire, portals, fonts, GPU userspace (mesa/vulkan), Firefox, Eblan, etc.
+
+Config: `/root/.config/hypr/hyprland.conf`
+
+| Bind | Action |
+|------|--------|
+| Super+Return | kitty |
+| Super+B | eblan |
+| Super+F | firefox |
+| Super+E | thunar |
+| Super+R | wofi |
+| Super+F12 | Hypr3D toggle (if plugin loaded) |
+
+### Hypr3D
+
+Sources from [samine825/Hypr3D](https://github.com/samine825/Hypr3D) are vendored to `/usr/src/Hypr3D` at build time.
+
+```bash
+# Offline build against installed hyprland headers (best-effort; plugin pins 0.56.2)
+oparysh-build-hypr3d
+# then restart Hyprland or: hyprctl plugin load /usr/lib/hypr3d/hypr3d.so
+
+# Online alternative
+hyprpm add https://github.com/samine825/Hypr3D
+hyprpm enable Hypr3D
+```
 
 ## Offline Eblan stack
 
-At build time `builder/vendor-eblan.sh` downloads:
-
-| Component | Source | On ISO |
-|-----------|--------|--------|
-| **EBLAN Browser** | `https://update.riba.click/eb/r/lastest.zip` | `/opt/eblan-browser` + `/usr/local/bin/eblan` |
-| **Eblanity CLI** | `https://eblansoft.ru/upd/eblanityCLI/eblanity` | `/usr/local/bin/eblanity` |
-
-System deps (PyQt6, WebEngine, ffmpeg, xcb, …) come from Arch packages in `configs/rescue.packages`. After the ISO is written you can run `eblan` and `eblanity` with **no network**.
-
-Upstream installers (normal installed system only):
-
-```bash
-curl -sSL https://eblanbrowser.ru/sh/installeblan.sh | sudo bash
-curl -sSfL https://eblansoft.ru/upd/eblanityCLI/install.sh | bash
-```
+| Component | On ISO |
+|-----------|--------|
+| EBLAN Browser | `/opt/eblan-browser` + `eblan` |
+| Eblanity CLI | `eblanity` |
 
 ## Using it
 
-Boot the rescue entry and you land in a tmux session running Oparysh's shell.
-
 ```
-impala                  connect to Wi-Fi (Ethernet just works)
-oparysh-chinila-mount   unlock and mount your Oparysh install at /mnt
-arch-chroot /mnt        run commands inside it
-eblan                   Eblan Browser (halal, offline)
-eblanity                Eblanity CLI (offline)
-ollama                  local AI models (halal)
-oparysh-chinila         a menu of all of the above
+impala                  Wi-Fi TUI
+oparysh-chinila-mount   unlock/mount install at /mnt
+arch-chroot /mnt
+eblan / eblanity / ollama
+oparysh-chinila         text menu (in a terminal)
 ```
-
-`oparysh-chinila-mount` asks for your disk passphrase and mounts the whole
-install the way it mounts itself, from its own fstab.
-
-### Local AI (halal)
-
-Local models run offline via Ollama. No cloud, no Claude, no Codex, no OpenCode.
-
-### What the agents know
-
-Local models and tools read `/usr/share/oparysh-chinila/AGENTS.md`.
 
 ## Building
 
 ```bash
-bin/omarchy-rescue-make                   # rescue-only ISO, stable channel
-bin/omarchy-rescue-make --with-installer  # full Oparysh ISO plus rescue
-bin/omarchy-rescue-boot                   # boot the newest ISO in QEMU
+bin/omarchy-rescue-make                   # rescue-only ISO
+bin/omarchy-rescue-make --with-installer  # installer + rescue
+bin/omarchy-rescue-boot                   # QEMU
 ```
 
-Build needs network **once** (vendor Eblan/Eblanity + Arch packages). The resulting ISO is offline-capable for those tools.
-
-`--edge` and `--rc` pick the channel. The ISO lands in `release/`.
+Build needs network once (Eblan, Hypr3D sources, Arch packages). ISO may exceed 2 GiB with the full desktop — use Actions artifacts if GitHub Releases rejects the upload.
 
 ## Layout
 
 ```
-configs/rescue.packages         Arch packages (incl. PyQt6 stack for Eblan)
-configs/airootfs/
-  opt/eblan-browser/            vendored browser (via vendor-eblan.sh)
-  usr/local/bin/eblan           browser launcher
-  usr/local/bin/eblanity        Eblanity CLI binary (vendored)
-  usr/local/bin/oparysh-chinila*
-builder/vendor-eblan.sh         downloads browser + eblanity into airootfs
-builder/apply-rescue.sh         layers rescue onto omarchy-iso checkout
+configs/rescue.packages              packages (Hyprland + Eblan + tools)
+configs/airootfs/root/.config/hypr/  Hyprland config
+configs/airootfs/usr/src/Hypr3D/     vendored plugin sources
+builder/vendor-eblan.sh
+builder/vendor-hypr3d.sh
 ```
 
 ## License
 
-Oparysh Chinila is released under the [MIT License](LICENSE). The software on the ISO keeps its own licenses. EBLAN Browser / Eblanity remain under their upstream terms.
+MIT for this repo packaging. Upstream licenses apply to software on the ISO.
