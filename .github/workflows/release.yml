@@ -55,12 +55,10 @@ jobs:
           sha256sum "$iso" > "$iso.sha256"
           size=$(stat -c %s "$iso")
           echo "$iso is $((size / 1024 / 1024)) MiB"
-          # GitHub release assets hard-cap at 2 GiB; artifacts can be larger.
-          if startsWith="${{ startsWith(github.ref, 'refs/tags/') }}"; then
-            if [[ $startsWith == true ]] && (( size >= 2 * 1024 * 1024 * 1024 )); then
-              echo "::error::$iso is too big for a GitHub release asset (>= 2 GiB)"
-              exit 1
-            fi
+          # GitHub release assets hard-cap at 2 GiB; workflow artifacts can be larger.
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]] && (( size >= 2 * 1024 * 1024 * 1024 )); then
+            echo "::error::$iso is too big for a GitHub release asset (>= 2 GiB)"
+            exit 1
           fi
           echo "name=$iso" >> "$GITHUB_OUTPUT"
           echo "path=release/$iso" >> "$GITHUB_OUTPUT"
