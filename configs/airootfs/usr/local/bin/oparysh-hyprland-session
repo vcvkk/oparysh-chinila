@@ -1,0 +1,30 @@
+#!/bin/bash
+# Oparysh Chinila: start Hyprland as the primary rescue session on tty1.
+set -euo pipefail
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_DESKTOP=Hyprland
+export LIBSEAT_BACKEND=seatd
+
+uid=$(id -u)
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$uid}"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+
+# Ensure seatd is up (needed for DRM without logind session on some live boots).
+if command -v seatd >/dev/null 2>&1; then
+  if ! pgrep -x seatd >/dev/null 2>&1; then
+    seatd -g video >/dev/null 2>&1 &
+    sleep 0.3
+  fi
+fi
+
+# PipeWire stack for audio (best-effort).
+if command -v pipewire >/dev/null 2>&1; then
+  pipewire >/dev/null 2>&1 &
+  pipewire-pulse >/dev/null 2>&1 &
+  wireplumber >/dev/null 2>&1 &
+fi
+
+exec /usr/bin/Hyprland
