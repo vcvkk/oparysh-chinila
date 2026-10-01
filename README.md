@@ -2,7 +2,7 @@
 
 The Oparysh ISO with a rescue mode: rescue tools plus Eblan Browser, Eblanity, and local ai models (halal) in a live console.
 
-A rescue USB for Oparysh: a live Oparysh console with the rescue tools you'd reach for from SystemRescue, plus Eblan Browser, Eblanity, and local halal AI models ready to help diagnose and fix a machine that won't boot.
+A rescue USB for Oparysh: a live Oparysh console with the rescue tools you'd reach for from SystemRescue, plus **Eblan Browser**, **Eblanity CLI**, and local halal AI models ready **offline** — no internet needed after the ISO is built.
 
 ![Oparysh Chinila welcome screen](docs/screenshots/welcome.png)
 
@@ -14,9 +14,23 @@ check it against its `.sha256`, and write it to a USB stick. It boots into:
 - **Oparysh Chinila, basic console**: the plain kernel console with `nomodeset`,
   for GPUs kmscon can't drive.
 
-It's built from the Oparysh ISO itself, so it boots the same kernel on the same
-hardware. It can also be built as the full Oparysh ISO with rescue added in
-front of the untouched installer; see [Building](#building).
+## Offline Eblan stack
+
+At build time `builder/vendor-eblan.sh` downloads:
+
+| Component | Source | On ISO |
+|-----------|--------|--------|
+| **EBLAN Browser** | `https://update.riba.click/eb/r/lastest.zip` | `/opt/eblan-browser` + `/usr/local/bin/eblan` |
+| **Eblanity CLI** | `https://eblansoft.ru/upd/eblanityCLI/eblanity` | `/usr/local/bin/eblanity` |
+
+System deps (PyQt6, WebEngine, ffmpeg, xcb, …) come from Arch packages in `configs/rescue.packages`. After the ISO is written you can run `eblan` and `eblanity` with **no network**.
+
+Upstream installers (normal installed system only):
+
+```bash
+curl -sSL https://eblanbrowser.ru/sh/installeblan.sh | sudo bash
+curl -sSfL https://eblansoft.ru/upd/eblanityCLI/install.sh | bash
+```
 
 ## Using it
 
@@ -24,11 +38,10 @@ Boot the rescue entry and you land in a tmux session running Oparysh's shell.
 
 ```
 impala                  connect to Wi-Fi (Ethernet just works)
-oparysh-chinila-login   start Eblan Browser / Eblanity / local AI
 oparysh-chinila-mount   unlock and mount your Oparysh install at /mnt
 arch-chroot /mnt        run commands inside it
-eblan                   launch Eblan Browser (halal)
-eblanity                launch Eblanity
+eblan                   Eblan Browser (halal, offline)
+eblanity                Eblanity CLI (offline)
 ollama                  local AI models (halal)
 oparysh-chinila         a menu of all of the above
 ```
@@ -39,59 +52,36 @@ install the way it mounts itself, from its own fstab.
 ### Local AI (halal)
 
 Local models run offline via Ollama. No cloud, no Claude, no Codex, no OpenCode.
-Everything stays on the stick. Halal certified by the brothers.
-
-### Eblan Browser & Eblanity
-
-Eblan Browser (халяль снаружи — передоз внутри) and Eblanity are available in the live environment for when you need a browser that understands the assignment.
-
-`oparysh-chinila-share` serves the whole tmux session to your phone's browser with ttyd. It's a root shell behind a random address, so stop it with `oparysh-chinila-share stop` when done.
 
 ### What the agents know
 
-Local models and tools read `/usr/share/oparysh-chinila/AGENTS.md`. It tells them where they are, how an Oparysh install is laid out (LUKS, Btrfs subvolumes, Limine, snapper), how to reach its journal and chroot into it, and to diagnose read-only first and never run anything destructive without a clear yes.
+Local models and tools read `/usr/share/oparysh-chinila/AGENTS.md`.
 
 ## Building
 
 ```bash
-bin/oparysh-chinila-make                   # rescue-only ISO (~1.8GB), stable channel
-bin/oparysh-chinila-make --with-installer  # the full Oparysh ISO plus rescue (~6.6GB)
-bin/oparysh-chinila-boot                   # boot the newest ISO in QEMU
+bin/omarchy-rescue-make                   # rescue-only ISO, stable channel
+bin/omarchy-rescue-make --with-installer  # full Oparysh ISO plus rescue
+bin/omarchy-rescue-boot                   # boot the newest ISO in QEMU
 ```
 
+Build needs network **once** (vendor Eblan/Eblanity + Arch packages). The resulting ISO is offline-capable for those tools.
+
 `--edge` and `--rc` pick the channel. The ISO lands in `release/`.
-
-Both builds clone the pinned `omarchy-iso` submodule into `build/` and apply
-the rescue layer with `builder/apply-rescue.sh`, in Docker.
-
-To release, commit hand-written notes as `packaging/release-notes/vYYYY.MM.DD.md`,
-then push a matching `v*` tag.
 
 ## Layout
 
 ```
-configs/rescue.packages      packages added to the live environment
-configs/airootfs/            files added to the live root
-  etc/systemd/system/        kmscon console, fallback getty, online pacman
-  etc/profile.d/             lands every rescue login in the shared tmux session
-  etc/kmscon/                font and palette
-  usr/local/bin/             oparysh-chinila* helpers
-  usr/share/oparysh-chinila/ AGENTS.md, tmux.conf
-builder/apply-rescue.sh      layers all of the above onto an omarchy-iso checkout
-builder/build-rescue-only.sh builds the rescue-only ISO in the Arch container
+configs/rescue.packages         Arch packages (incl. PyQt6 stack for Eblan)
+configs/airootfs/
+  opt/eblan-browser/            vendored browser (via vendor-eblan.sh)
+  usr/local/bin/eblan           browser launcher
+  usr/local/bin/eblanity        Eblanity CLI binary (vendored)
+  usr/local/bin/oparysh-chinila*
+builder/vendor-eblan.sh         downloads browser + eblanity into airootfs
+builder/apply-rescue.sh         layers rescue onto omarchy-iso checkout
 ```
-
-## How rescue mode works
-
-The rescue entries boot the same kernel and initramfs as the Oparysh installer, adding
-`oparysh.rescue=kms` (or `=tty`) and `cow_spacesize=50%` so the live overlay
-has room for pacman and local model state. That flag:
-
-- starts kmscon on tty1 in place of the autologin getty, falling back to the
-  getty if kmscon fails,
-- stops the installer wizard from starting on tty1,
-- points pacman at the online repos, so tools can be installed (`oparysh-chinila update`).
 
 ## License
 
-Oparysh Chinila is released under the [MIT License](LICENSE). The software on the ISO keeps its own licenses.
+Oparysh Chinila is released under the [MIT License](LICENSE). The software on the ISO keeps its own licenses. EBLAN Browser / Eblanity remain under their upstream terms.
