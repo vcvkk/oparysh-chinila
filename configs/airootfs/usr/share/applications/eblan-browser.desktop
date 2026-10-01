@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=EBLAN Browser
+GenericName=EBLAN Browser
+Comment=EBLAN Browser - халяль снаружи, передоз внутри
+Exec=/usr/local/bin/eblan %U
+Icon=eblan-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=EBLAN Browser
+Keywords=browser;internet;web;eblan;

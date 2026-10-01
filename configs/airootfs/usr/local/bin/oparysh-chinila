@@ -17,8 +17,8 @@ halal AI models. Nothing here touches your disks until you ask it to.
   oparysh-chinila-mount   unlock and mount your Oparysh install at /mnt
   arch-chroot /mnt        run commands inside your installed system
   oparysh-chinila-share   drive this console from your phone's browser
-  eblan                   Eblan Browser (halal)
-  eblanity                Eblanity
+  eblan                   Eblan Browser (halal, offline)
+  eblanity                Eblanity CLI (offline)
   ollama                  local AI models (halal)
 
   C-space u               open the last link on screen on your phone
@@ -48,6 +48,22 @@ chroot_installed() {
   arch-chroot /mnt
 }
 
+start_eblan() {
+  if command -v eblan >/dev/null && [[ -f /opt/eblan-browser/EBLAN.py ]]; then
+    eblan
+  else
+    gum style --foreground 3 "Eblan Browser not vendored into this ISO. Rebuild with builder/vendor-eblan.sh"
+  fi
+}
+
+start_eblanity() {
+  if command -v eblanity >/dev/null && [[ -x $(command -v eblanity) ]]; then
+    eblanity
+  else
+    gum style --foreground 3 "Eblanity not vendored into this ISO. Rebuild with builder/vendor-eblan.sh"
+  fi
+}
+
 menu() {
   local choice
   while true; do
@@ -63,8 +79,8 @@ menu() {
       "Exit to shell") || return 0
 
     case $choice in
-    "Start Eblan Browser") command -v eblan >/dev/null && eblan || gum style --foreground 3 "Eblan Browser not installed yet" ;;
-    "Start Eblanity") command -v eblanity >/dev/null && eblanity || gum style --foreground 3 "Eblanity not installed yet" ;;
+    "Start Eblan Browser") start_eblan ;;
+    "Start Eblanity") start_eblanity ;;
     "Start local AI (ollama)") ollama serve & sleep 1; ollama run llama3.2 ;;
     "Connect to Wi-Fi") impala ;;
     "Share this console with a phone") oparysh-chinila-share ;;

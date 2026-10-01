@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Offline launcher for EBLAN Browser (vendored into the ISO by builder/vendor-eblan.sh).
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
+if [[ ! -f /opt/eblan-browser/EBLAN.py ]]; then
+  echo "eblan: /opt/eblan-browser/EBLAN.py missing — run builder/vendor-eblan.sh before building the ISO" >&2
+  exit 1
+fi
+exec /usr/bin/python /opt/eblan-browser/EBLAN.py "$@"

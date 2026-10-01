@@ -1,19 +1,10 @@
 #!/bin/bash
 
-# Build Omarchy Rescue into ./release.
+# Build Oparysh Chinila / Omarchy Rescue into ./release.
 #
 #   bin/omarchy-rescue-make [--edge|--rc] [--with-installer] [other omarchy-iso-make flags]
 #
-# By default this builds the rescue-only ISO: Omarchy's live system with the
-# rescue layer, installed from the online repos, small enough for a GitHub
-# release. --with-installer builds the full Omarchy ISO with rescue added in
-# front of the stock installer, through omarchy-iso's own build; the extra flags
-# pass straight through to omarchy-iso-make in that mode.
-#
-# Either way it starts from a fresh copy of the pinned omarchy-iso checkout and
-# never mounts the host's pacman cache into the build container. Upstream
-# mounts it and then has to wipe it with sudo before every build, because a
-# cached file can differ from the Omarchy mirror's copy under the same name.
+# Vendors Eblan Browser + Eblanity into airootfs first (offline on the ISO).
 
 set -euo pipefail
 
@@ -38,6 +29,9 @@ for arg in "$@"; do
   esac
 done
 
+# Fetch Eblan Browser + Eblanity into configs/airootfs (needs network once at build).
+"$ROOT/builder/vendor-eblan.sh"
+
 git -C "$ROOT" submodule update --init --recursive
 
 rm -rf "$BUILD"
@@ -46,8 +40,6 @@ git clone --quiet "$ROOT/omarchy-iso" "$BUILD"
 git -C "$BUILD" -c protocol.file.allow=always submodule update --init --quiet \
   --reference "$ROOT/omarchy-iso/archiso"
 
-# The docker group is root-equivalent, so fall back to sudo the way
-# omarchy-iso-make does when the socket refuses the calling user.
 DOCKER=(docker)
 docker version &>/dev/null || DOCKER=(sudo docker)
 

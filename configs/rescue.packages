@@ -3,9 +3,36 @@
 # nvme-cli, fsarchiver, partclone, clonezilla, btrfs-progs, cryptsetup, lvm2,
 # mdadm, parted, gptfdisk, nmap, tcpdump, rsync, tmux, and more).
 
-# Local AI (halal) + Eblan stuff. No Claude, no Codex, no OpenCode.
+# Local AI (halal). No Claude, no Codex, no OpenCode.
 ollama
-# eblan-browser and eblanity would go here when packaged; for now placeholders
+
+# EBLAN Browser system deps (sources + eblanity binary are vendored at build time
+# by builder/vendor-eblan.sh into airootfs — fully offline after the ISO is built).
+python
+python-pip
+python-pyqt6
+python-pyqt6-webengine
+python-requests
+python-httpx
+python-pydantic
+xcb-util-cursor
+xcb-util-image
+xcb-util-keysyms
+xcb-util-renderutil
+xcb-util-wm
+libxkbcommon-x11
+mesa
+fontconfig
+dbus
+nss
+alsa-lib
+libxcomposite
+libxdamage
+libxrandr
+gtk3
+libxslt
+ffmpeg
+unzip
 
 # Console: kmscon for real fonts and truecolor without a desktop, ttyd and
 # qrencode to hand the session to a phone, impala for Wi-Fi over iwd
@@ -56,7 +83,6 @@ restic
 borg
 7zip
 zip
-unzip
 wget
 
 # Network diagnosis
@@ -71,4 +97,3 @@ github-cli
 neovim
 ripgrep
 fd
-python
