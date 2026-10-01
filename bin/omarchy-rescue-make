@@ -4,7 +4,7 @@
 #
 #   bin/omarchy-rescue-make [--edge|--rc] [--with-installer] [other omarchy-iso-make flags]
 #
-# Vendors Eblan Browser + Eblanity into airootfs first (offline on the ISO).
+# Vendors Eblan Browser + Eblanity + Hypr3D sources into airootfs first.
 
 set -euo pipefail
 
@@ -29,8 +29,9 @@ for arg in "$@"; do
   esac
 done
 
-# Fetch Eblan Browser + Eblanity into configs/airootfs (needs network once at build).
+# Fetch offline assets into configs/airootfs (needs network once at build).
 "$ROOT/builder/vendor-eblan.sh"
+"$ROOT/builder/vendor-hypr3d.sh"
 
 git -C "$ROOT" submodule update --init --recursive
 
