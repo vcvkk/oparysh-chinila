@@ -1,1 +1,1 @@
-/usr/share/omarchy-rescue/AGENTS.md
+/usr/share/oparysh-chinila/AGENTS.md
