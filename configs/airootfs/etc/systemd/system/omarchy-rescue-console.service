@@ -1,13 +1,13 @@
-# The rescue console: kmscon on tty1, so the agents get real fonts, truecolor,
-# and Unicode without a graphical session. Modeled on kmscon's own
-# kmsconvt@.service. Only the "Omarchy Rescue" boot entry (omarchy.rescue=kms)
-# starts it; if kmscon cannot start, the plain autologin console takes over.
+# Primary Oparysh Chinila session: Hyprland on tty1.
+# Kernel cmdline still uses omarchy.rescue=kms so GRUB entries stay valid.
+# If Hyprland fails, OnFailure starts the plain autologin getty.
 
 [Unit]
-Description=Omarchy Rescue console on tty1
+Description=Oparysh Chinila Hyprland on tty1
 After=systemd-user-sessions.service
 After=plymouth-quit-wait.service
 After=systemd-vconsole-setup.service
+After=seatd.service
 Before=getty.target
 OnFailure=omarchy-rescue-getty.service
 IgnoreOnIsolate=yes
@@ -15,12 +15,21 @@ ConditionKernelCommandLine=omarchy.rescue=kms
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=/usr/bin/kmscon --vt=tty1 --no-switchvt --login -- /usr/bin/login -f root
-UtmpIdentifier=tty1
+Type=simple
+User=root
+PAMName=login
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_CURRENT_DESKTOP=Hyprland
+ExecStart=/usr/local/bin/oparysh-hyprland-session
+Restart=on-failure
+RestartSec=2
 
 [Install]
 WantedBy=getty.target
