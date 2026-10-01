@@ -1,14 +1,11 @@
-# Installed into the live environment on top of the stock Omarchy ISO, which
+# Installed into the live environment on top of the stock Omarchy/Oparysh ISO, which
 # already carries Arch's releng rescue set (ddrescue, testdisk, smartmontools,
 # nvme-cli, fsarchiver, partclone, clonezilla, btrfs-progs, cryptsetup, lvm2,
 # mdadm, parted, gptfdisk, nmap, tcpdump, rsync, tmux, and more).
 
-# Agents. bubblewrap is the sandbox Codex runs commands in: without it, it
-# asks before every command, even to look at a disk.
-claude-code
-openai-codex-bin
-opencode
-bubblewrap
+# Local AI (halal) + Eblan stuff. No Claude, no Codex, no OpenCode.
+ollama
+# eblan-browser and eblanity would go here when packaged; for now placeholders
 
 # Console: kmscon for real fonts and truecolor without a desktop, ttyd and
 # qrencode to hand the session to a phone, impala for Wi-Fi over iwd
@@ -18,7 +15,7 @@ ttyd
 qrencode
 impala
 
-# The Omarchy shell the live root already gets from omarchy-settings
+# The Oparysh shell the live root already gets from settings
 starship
 zoxide
 fzf
@@ -68,7 +65,7 @@ iperf3
 socat
 whois
 
-# For agents and humans working in the shell
+# For tools and humans working in the shell
 git
 github-cli
 neovim

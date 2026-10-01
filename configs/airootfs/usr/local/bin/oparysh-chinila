@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# Oparysh Chinila: the welcome screen, and a menu over the rescue helpers for
+# anyone who'd rather pick than type.
+
+welcome() {
+  local logo=/usr/share/omarchy/logo.txt
+  [[ -f $logo ]] && gum style --foreground 2 "$(<"$logo")" && echo
+
+  gum style --foreground 4 --bold "Oparysh Chinila"
+  cat <<'TEXT'
+A live Oparysh console with rescue tools, Eblan Browser, Eblanity and local
+halal AI models. Nothing here touches your disks until you ask it to.
+
+  oparysh-chinila         menu of everything below
+  impala                  connect to Wi-Fi (Ethernet just works)
+  oparysh-chinila-mount   unlock and mount your Oparysh install at /mnt
+  arch-chroot /mnt        run commands inside your installed system
+  oparysh-chinila-share   drive this console from your phone's browser
+  eblan                   Eblan Browser (halal)
+  eblanity                Eblanity
+  ollama                  local AI models (halal)
+
+  C-space u               open the last link on screen on your phone
+  C-space o               open the menu in a new window
+TEXT
+  echo
+}
+
+online() {
+  curl -s -m 5 -o /dev/null https://archlinux.org
+}
+
+require_online() {
+  online && return
+  gum style --foreground 3 "No internet connection yet. Connect Wi-Fi with impala, or plug in Ethernet."
+  return 1
+}
+
+update_tools() {
+  require_online || return
+  pacman -Sy --needed --noconfirm archlinux-keyring &&
+    pacman -S --noconfirm ollama
+}
+
+chroot_installed() {
+  mountpoint -q /mnt || oparysh-chinila-mount || return
+  arch-chroot /mnt
+}
+
+menu() {
+  local choice
+  while true; do
+    choice=$(gum choose --header "Oparysh Chinila" \
+      "Start Eblan Browser" \
+      "Start Eblanity" \
+      "Start local AI (ollama)" \
+      "Connect to Wi-Fi" \
+      "Share this console with a phone" \
+      "Mount installed Oparysh at /mnt" \
+      "Chroot into installed Oparysh" \
+      "Update tools" \
+      "Exit to shell") || return 0
+
+    case $choice in
+    "Start Eblan Browser") command -v eblan >/dev/null && eblan || gum style --foreground 3 "Eblan Browser not installed yet" ;;
+    "Start Eblanity") command -v eblanity >/dev/null && eblanity || gum style --foreground 3 "Eblanity not installed yet" ;;
+    "Start local AI (ollama)") ollama serve & sleep 1; ollama run llama3.2 ;;
+    "Connect to Wi-Fi") impala ;;
+    "Share this console with a phone") oparysh-chinila-share ;;
+    "Mount installed Oparysh at /mnt") oparysh-chinila-mount ;;
+    "Chroot into installed Oparysh") chroot_installed ;;
+    "Update tools") update_tools ;;
+    "Exit to shell") return 0 ;;
+    esac
+
+    echo
+    gum input --placeholder "Press Enter to return to the menu" >/dev/null || return 0
+  done
+}
+
+case ${1:-menu} in
+welcome) welcome ;;
+menu) menu ;;
+update) update_tools ;;
+*)
+  echo "Usage: oparysh-chinila [welcome|menu|update]" >&2
+  exit 1
+  ;;
+esac
