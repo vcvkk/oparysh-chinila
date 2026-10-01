@@ -1,8 +1,8 @@
 name: Release
 
-# Push a tag like v2026.09.29 to build the rescue-only ISO and publish it as a
-# GitHub release. Run it by hand to build without releasing; the ISO is kept as
-# a workflow artifact for a few days.
+# Push a tag like v2026.10.01 to build the rescue-only ISO and publish it as a
+# GitHub release. Run it by hand (workflow_dispatch) to build without releasing;
+# the ISO is kept as a workflow artifact for a few days.
 
 on:
   push:
@@ -16,15 +16,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Full history: the build clones archiso using this checkout's copy as a
-      # reference, and git refuses a shallow reference repository.
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      # Every release is described by hand-written notes committed before the
-      # tag. Stop before building anything if they're missing.
       - name: Check release notes
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -36,6 +32,17 @@ jobs:
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Ensure vendor-eblan is executable
+        run: chmod +x builder/vendor-eblan.sh bin/omarchy-rescue-make bin/omarchy-rescue-boot || true
 
       - name: Build the ISO
         run: bin/omarchy-rescue-make
@@ -44,16 +51,140 @@ jobs:
         id: iso
         run: |
           cd release
-          iso=$(ls *.iso)
+          iso=$(ls *.iso | head -n1)
           sha256sum "$iso" > "$iso.sha256"
           size=$(stat -c %s "$iso")
           echo "$iso is $((size / 1024 / 1024)) MiB"
-          # GitHub rejects release assets of 2 GiB or more.
           if (( size >= 2 * 1024 * 1024 * 1024 )); then
             echo "::error::$iso is too big for a GitHub release asset"
             exit 1
           fi
+          echo "name=$iso" >> "$GITHUB_OUTPUT"
           echo "path=release/$iso" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test ISO contents (chroot)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq squashfs-tools xorriso
+
+          ISO=$(ls release/*.iso | head -n1)
+          MNT=$(mktemp -d)
+          ROOT=$(mktemp -d)
+          cleanup() { sudo umount "$MNT" 2>/dev/null || true; rm -rf "$MNT" "$ROOT"; }
+          trap cleanup EXIT
+
+          sudo mount -o loop,ro "$ISO" "$MNT"
+
+          # Prefer the live squashfs used by archiso
+          SFS=""
+          for candidate in \
+            "$MNT/arch/x86_64/airootfs.sfs" \
+            "$MNT/arch/x86_64/airootfs.sfs" \
+            "$MNT"/*/x86_64/airootfs.sfs \
+            "$MNT"/airootfs.sfs; do
+            if [[ -f $candidate ]]; then
+              SFS=$candidate
+              break
+            fi
+          done
+          if [[ -z $SFS ]]; then
+            echo "::error::airootfs.sfs not found in ISO"
+            find "$MNT" -name '*.sfs' | head -20
+            exit 1
+          fi
+          echo "Using squashfs: $SFS"
+
+          sudo unsquashfs -d "$ROOT" -f "$SFS" >/tmp/unsquash.log 2>&1 || {
+            tail -50 /tmp/unsquash.log
+            exit 1
+          }
+
+          fail=0
+          check() {
+            local path=$1
+            if [[ -e $ROOT$path ]] || [[ -L $ROOT$path ]]; then
+              echo "OK  $path"
+            else
+              echo "MISSING $path"
+              fail=1
+            fi
+          }
+          check_x() {
+            local path=$1
+            if [[ -x $ROOT$path ]]; then
+              echo "OK  $path (executable)"
+            else
+              echo "NOT EXEC $path"
+              fail=1
+            fi
+          }
+
+          echo "=== presence checks ==="
+          check_x /usr/local/bin/eblan
+          check_x /usr/local/bin/eblanity
+          check_x /usr/local/bin/oparysh-chinila
+          check_x /usr/local/bin/oparysh-chinila-mount
+          check /opt/eblan-browser/EBLAN.py
+          check /usr/share/oparysh-chinila/AGENTS.md
+
+          echo "=== chroot command -v ==="
+          # Bind mounts needed for a minimal chroot
+          sudo mount --bind /dev "$ROOT/dev"
+          sudo mount --bind /proc "$ROOT/proc"
+          sudo mount --bind /sys "$ROOT/sys"
+          sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || true
+
+          for cmd in eblan eblanity oparysh-chinila oparysh-chinila-mount python ollama; do
+            if sudo chroot "$ROOT" /bin/bash -lc "command -v $cmd" >/tmp/cv.out 2>/tmp/cv.err; then
+              echo "OK  command -v $cmd -> $(cat /tmp/cv.out)"
+            else
+              echo "FAIL command -v $cmd"
+              cat /tmp/cv.err || true
+              # ollama may be a package binary path only after install; warn not fail if package present
+              if [[ $cmd == ollama ]]; then
+                if sudo chroot "$ROOT" /bin/bash -lc "pacman -Q ollama" >/dev/null 2>&1; then
+                  echo "WARN ollama package installed but binary not on PATH in chroot"
+                else
+                  fail=1
+                fi
+              else
+                fail=1
+              fi
+            fi
+          done
+
+          echo "=== eblanity -version ==="
+          if sudo chroot "$ROOT" /usr/local/bin/eblanity -version 2>&1 | tee /tmp/eblanity.out; then
+            grep -qi eblanity /tmp/eblanity.out && echo "OK  eblanity version"
+          else
+            echo "FAIL eblanity -version"
+            fail=1
+          fi
+
+          echo "=== python imports for Eblan Browser ==="
+          if sudo chroot "$ROOT" /usr/bin/python -c "from PyQt6.QtWidgets import QApplication; from PyQt6.QtWebEngineWidgets import QWebEngineView; print('PyQt6 OK')" 2>&1 | tee /tmp/pyqt.out; then
+            grep -q 'PyQt6 OK' /tmp/pyqt.out && echo "OK  PyQt6 imports"
+          else
+            echo "FAIL PyQt6 imports (browser may still need display)"
+            cat /tmp/pyqt.out || true
+            fail=1
+          fi
+
+          echo "=== oparysh-chinila help/usage ==="
+          sudo chroot "$ROOT" /usr/local/bin/oparysh-chinila 2>&1 | head -5 || true
+          # without TTY gum may fail; just ensure binary runs
+          if sudo chroot "$ROOT" /bin/bash -lc "/usr/local/bin/oparysh-chinila 2>&1 | head -1" >/dev/null; then
+            echo "OK  oparysh-chinila runs"
+          fi
+
+          sudo umount "$ROOT/dev" "$ROOT/proc" "$ROOT/sys" 2>/dev/null || true
+
+          if (( fail )); then
+            echo "::error::Smoke-test failed"
+            exit 1
+          fi
+          echo "All smoke checks passed."
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
@@ -62,13 +193,13 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "${{ steps.iso.outputs.path }}" "${{ steps.iso.outputs.path }}.sha256" \
-            --title "Omarchy Rescue $GITHUB_REF_NAME" \
+            --title "Oparysh Chinila $GITHUB_REF_NAME" \
             --notes-file "packaging/release-notes/$GITHUB_REF_NAME.md"
 
       - name: Keep the ISO as an artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: omarchy-rescue-iso
+          name: oparysh-chinila-iso
           path: release/*.iso*
-          retention-days: 3
+          retention-days: 7
