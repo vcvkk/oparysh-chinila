@@ -1,13 +1,9 @@
-# Installed into the live environment on top of the stock Omarchy/Oparysh ISO, which
-# already carries Arch's releng rescue set (ddrescue, testdisk, smartmontools,
-# nvme-cli, fsarchiver, partclone, clonezilla, btrfs-progs, cryptsetup, lvm2,
-# mdadm, parted, gptfdisk, nmap, tcpdump, rsync, tmux, and more).
+# Live packages on top of Arch releng / Omarchy base.
 
 # Local AI (halal). No Claude, no Codex, no OpenCode.
 ollama
 
-# EBLAN Browser system deps (sources + eblanity binary are vendored at build time
-# by builder/vendor-eblan.sh into airootfs — fully offline after the ISO is built).
+# EBLAN Browser system deps (sources + eblanity binary are vendored at build time).
 python
 python-pip
 python-pyqt6
@@ -34,15 +30,93 @@ libxslt
 ffmpeg
 unzip
 
-# Console: kmscon for real fonts and truecolor without a desktop, ttyd and
-# qrencode to hand the session to a phone, impala for Wi-Fi over iwd
-kmscon
+# ---- Hyprland full stack (primary session; kmscon is fallback only) ----
+hyprland
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+hyprpaper
+hypridle
+hyprlock
+hyprpicker
+waybar
+wofi
+kitty
+alacritty
+foot
+mako
+dunst
+polkit-gnome
+qt5-wayland
+qt6-wayland
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+grim
+slurp
+wl-clipboard
+brightnessctl
+playerctl
+swww
+thunar
+gvfs
+tumbler
+network-manager-applet
+nm-connection-editor
+blueman
+bluez
+bluez-utils
+seatd
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+ttf-font-awesome
 ttf-jetbrains-mono-nerd
+papirus-icon-theme
+adwaita-icon-theme
+xorg-xwayland
+libinput
+wlr-randr
+wayland-utils
+
+# GPU userspace (pick what the machine has; harmless if unused)
+vulkan-intel
+vulkan-radeon
+vulkan-mesa-layers
+libva-mesa-driver
+intel-media-driver
+mesa-utils
+
+# Hypr3D plugin build deps (sources under /usr/src/Hypr3D)
+cmake
+gcc
+pkgconf
+pixman
+libdrm
+libglvnd
+hyprgraphics
+hyprlang
+hyprutils
+hyprcursor
+aquamarine
+
+# Extra desktop / rescue toys
+firefox
+imv
+mpv
+htop
+btop
+fastfetch
+
+# Console leftovers (phone share, Wi-Fi TUI, fallback text console)
+kmscon
 ttyd
 qrencode
 impala
 
-# The Oparysh shell the live root already gets from settings
+# The Oparysh shell
 starship
 zoxide
 fzf
@@ -66,11 +140,8 @@ lm_sensors
 i2c-tools
 memtester
 stress-ng
-fastfetch
 
 # System inspection
-btop
-htop
 iotop
 lsof
 strace
