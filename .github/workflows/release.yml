@@ -71,7 +71,11 @@ jobs:
           ISO=$(ls release/*.iso | head -n1)
           MNT=$(mktemp -d)
           ROOT=$(mktemp -d)
-          cleanup() { sudo umount "$MNT" 2>/dev/null || true; rm -rf "$MNT" "$ROOT"; }
+          cleanup() {
+            sudo umount "$ROOT/dev" "$ROOT/proc" "$ROOT/sys" 2>/dev/null || true
+            sudo umount "$MNT" 2>/dev/null || true
+            sudo rm -rf "$MNT" "$ROOT"
+          }
           trap cleanup EXIT
 
           sudo mount -o loop,ro "$ISO" "$MNT"
@@ -79,7 +83,6 @@ jobs:
           # Prefer the live squashfs used by archiso
           SFS=""
           for candidate in \
-            "$MNT/arch/x86_64/airootfs.sfs" \
             "$MNT/arch/x86_64/airootfs.sfs" \
             "$MNT"/*/x86_64/airootfs.sfs \
             "$MNT"/airootfs.sfs; do
@@ -129,7 +132,6 @@ jobs:
           check /usr/share/oparysh-chinila/AGENTS.md
 
           echo "=== chroot command -v ==="
-          # Bind mounts needed for a minimal chroot
           sudo mount --bind /dev "$ROOT/dev"
           sudo mount --bind /proc "$ROOT/proc"
           sudo mount --bind /sys "$ROOT/sys"
@@ -141,7 +143,6 @@ jobs:
             else
               echo "FAIL command -v $cmd"
               cat /tmp/cv.err || true
-              # ollama may be a package binary path only after install; warn not fail if package present
               if [[ $cmd == ollama ]]; then
                 if sudo chroot "$ROOT" /bin/bash -lc "pacman -Q ollama" >/dev/null 2>&1; then
                   echo "WARN ollama package installed but binary not on PATH in chroot"
@@ -173,12 +174,9 @@ jobs:
 
           echo "=== oparysh-chinila help/usage ==="
           sudo chroot "$ROOT" /usr/local/bin/oparysh-chinila 2>&1 | head -5 || true
-          # without TTY gum may fail; just ensure binary runs
           if sudo chroot "$ROOT" /bin/bash -lc "/usr/local/bin/oparysh-chinila 2>&1 | head -1" >/dev/null; then
             echo "OK  oparysh-chinila runs"
           fi
-
-          sudo umount "$ROOT/dev" "$ROOT/proc" "$ROOT/sys" 2>/dev/null || true
 
           if (( fail )); then
             echo "::error::Smoke-test failed"
@@ -203,3 +201,4 @@ jobs:
           name: oparysh-chinila-iso
           path: release/*.iso*
           retention-days: 7
+          compression-level: 0
