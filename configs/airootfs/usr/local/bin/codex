@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Codex wants a background server that the packaged CLI can't start here ("this
-# CLI has no complete local package"), so it never gets past its sign-in.
-# Running it without that server works, for every subcommand.
-
-exec /usr/bin/codex --no-daemon "$@"
