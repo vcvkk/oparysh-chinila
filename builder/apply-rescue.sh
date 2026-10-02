@@ -40,7 +40,6 @@ for mirror in stable rc edge; do
     cp "$CONFIGS/pacman-online-$mirror.conf" "$CONFIGS/airootfs/usr/share/oparysh-chinila/"
   fi
 done
-# keep legacy path if something still looks there
 mkdir -p "$CONFIGS/airootfs/usr/share/omarchy-rescue" 2>/dev/null || true
 for mirror in stable rc edge; do
   if [[ -f $CONFIGS/pacman-online-$mirror.conf ]]; then
@@ -67,14 +66,24 @@ if ! grep -q 'apple-bcm-firmware-fetcher' "$build"; then
   expect "$build" "apple-bcm-firmware-fetcher"
 fi
 
+# Skip installer wizard when booted with oparysh.rescue (or legacy omarchy.rescue).
 script=$CONFIGS/airootfs/root/.automated_script.sh
-anchor='[[ $(tty) == /dev/tty1 ]] || exit 0'
-expect "$script" "$anchor"
-ANCHOR=$anchor awk '
-  { print }
-  $0 == ENVIRON["ANCHOR"] { print "grep -qwE '\''oparysh\\.rescue|omarchy\\.rescue'\'' /proc/cmdline && exit 0" }
-' "$script" >"$script.new"
-mv "$script.new" "$script"
+[[ -f $script ]] || fail "missing $script"
+if ! grep -qF 'oparysh.rescue' "$script"; then
+  python3 - "$script" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+text = p.read_text()
+needle = "[[ $(tty) == /dev/tty1 ]] || exit 0"
+line = "grep -qwE 'oparysh.rescue|omarchy.rescue' /proc/cmdline && exit 0"
+if needle not in text:
+    raise SystemExit(f"anchor not found in {p}")
+text = text.replace(needle, needle + "\n" + line, 1)
+p.write_text(text)
+print(f"patched {p}")
+PY
+fi
 expect "$script" "oparysh.rescue"
 
 profile=$CONFIGS/profiledef.sh
