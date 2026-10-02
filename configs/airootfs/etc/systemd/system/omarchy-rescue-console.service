@@ -28,6 +28,7 @@ StandardError=journal
 Environment=XDG_SESSION_TYPE=wayland
 Environment=XDG_CURRENT_DESKTOP=Hyprland
 Environment=HOME=/root
+ExecStartPre=/usr/local/bin/oparysh-rebrand
 ExecStart=/usr/local/bin/oparysh-hyprland-session
 Restart=on-failure
 RestartSec=2
