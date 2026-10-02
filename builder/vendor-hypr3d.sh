@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clone Hypr3D; bake Apple ✅ skybox; install local window overlay only.
+# Clone Hypr3D; bake Apple ✅ skybox; local window-overlay.png only.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -82,32 +82,14 @@ img.convert("RGB").save(out, "PNG", optimize=True)
 print("skybox", out, os.path.getsize(out))
 PY
 
-# --- window overlay: ONLY local packaging/hypr3d/ ---
-echo "[vendor-hypr3d] Window overlay (local packaging only)"
-if [[ -f $PKG/window-overlay.png ]]; then
-  cp -f "$PKG/window-overlay.png" "$ASSETS/window-overlay.png"
-  echo "[vendor-hypr3d] Using packaging/hypr3d/window-overlay.png"
-elif [[ -f $PKG/window-overlay.jpg ]]; then
-  python3 - <<PY
-from PIL import Image
-im = Image.open("$PKG/window-overlay.jpg").convert("RGBA")
-im.save("$ASSETS/window-overlay.png", "PNG")
-print("overlay from jpg", im.size)
-PY
-elif [[ -f $PKG/window-overlay.jpg.b64 ]]; then
-  python3 - <<PY
-import base64
-from PIL import Image
-from io import BytesIO
-raw = base64.b64decode(open("$PKG/window-overlay.jpg.b64").read().strip())
-im = Image.open(BytesIO(raw)).convert("RGBA")
-im.save("$ASSETS/window-overlay.png", "PNG")
-print("overlay from jpg.b64", im.size, len(raw))
-PY
-else
-  echo "[vendor-hypr3d] ERROR: put packaging/hypr3d/window-overlay.png (or .jpg / .jpg.b64)" >&2
+# --- window overlay: ONLY packaging/hypr3d/window-overlay.png ---
+echo "[vendor-hypr3d] Window overlay (local only)"
+if [[ ! -f $PKG/window-overlay.png ]]; then
+  echo "[vendor-hypr3d] ERROR: missing packaging/hypr3d/window-overlay.png" >&2
   exit 1
 fi
+cp -f "$PKG/window-overlay.png" "$ASSETS/window-overlay.png"
+echo "[vendor-hypr3d] Installed packaging/hypr3d/window-overlay.png"
 
 if [[ -f $PKG/telegram-checks-skybox.png ]]; then
   cp -f "$PKG/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
@@ -117,9 +99,7 @@ cat >"$ASSETS/README.txt" <<'EOF'
 Oparysh Chinila / Hypr3D assets
 
 telegram-checks-skybox.png  — 360 panorama, Apple Color Emoji ✅ (U+2705)
-apple-check-2705.png        — single glyph sample
-window-overlay.png          — ONLY from packaging/hypr3d/window-overlay.png
-                              (or .jpg / .jpg.b64 at build)
+window-overlay.png          — only from packaging/hypr3d/window-overlay.png
 EOF
 
 mkdir -p "$ROOT/configs/airootfs/usr/local/bin" "$ROOT/configs/airootfs/usr/lib/hypr3d"
