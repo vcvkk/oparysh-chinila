@@ -1,20 +1,30 @@
 #!/bin/bash
 
-# Oparysh Chinila: the welcome screen, and a menu over the rescue helpers for
-# anyone who'd rather pick than type.
+# Oparysh Chinila: welcome screen + menu over rescue helpers.
 
 welcome() {
-  local logo=/usr/share/omarchy/logo.txt
-  [[ -f $logo ]] && gum style --foreground 2 "$(<"$logo")" && echo
+  local logo=/usr/share/oparysh-chinila/logo.txt
+  [[ -f $logo ]] || logo=/usr/share/omarchy/logo.txt
+  if [[ -f $logo ]]; then
+    if command -v gum >/dev/null 2>&1; then
+      gum style --foreground 2 "$(<"$logo")" && echo
+    else
+      printf '\033[32m%s\033[0m\n\n' "$(<"$logo")"
+    fi
+  fi
 
-  gum style --foreground 4 --bold "Oparysh Chinila"
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 4 --bold "Oparysh Chinila"
+  else
+    printf '\033[34m\033[1mOparysh Chinila\033[0m\n'
+  fi
   cat <<'TEXT'
 A live Oparysh console with rescue tools, Eblan Browser, Eblanity and local
 halal AI models. Nothing here touches your disks until you ask it to.
 
   oparysh-chinila         menu of everything below
   impala                  connect to Wi-Fi (Ethernet just works)
-  oparysh-chinila-mount   unlock and mount your Oparysh install at /mnt
+  oparysh-chinila-mount   unlock and mount your install at /mnt
   arch-chroot /mnt        run commands inside your installed system
   oparysh-chinila-share   drive this console from your phone's browser
   eblan                   Eblan Browser (halal, offline)
@@ -33,7 +43,11 @@ online() {
 
 require_online() {
   online && return
-  gum style --foreground 3 "No internet connection yet. Connect Wi-Fi with impala, or plug in Ethernet."
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 3 "No internet connection yet. Connect Wi-Fi with impala, or plug in Ethernet."
+  else
+    echo "No internet connection yet. Connect Wi-Fi with impala, or plug in Ethernet."
+  fi
   return 1
 }
 
@@ -52,7 +66,7 @@ start_eblan() {
   if command -v eblan >/dev/null && [[ -f /opt/eblan-browser/EBLAN.py ]]; then
     eblan
   else
-    gum style --foreground 3 "Eblan Browser not vendored into this ISO. Rebuild with builder/vendor-eblan.sh"
+    echo "Eblan Browser not vendored into this ISO."
   fi
 }
 
@@ -60,21 +74,25 @@ start_eblanity() {
   if command -v eblanity >/dev/null && [[ -x $(command -v eblanity) ]]; then
     eblanity
   else
-    gum style --foreground 3 "Eblanity not vendored into this ISO. Rebuild with builder/vendor-eblan.sh"
+    echo "Eblanity not vendored into this ISO."
   fi
 }
 
 menu() {
   local choice
   while true; do
+    if ! command -v gum >/dev/null 2>&1; then
+      echo "Oparysh Chinila — type a command (eblan, impala, ...)"
+      return 0
+    fi
     choice=$(gum choose --header "Oparysh Chinila" \
       "Start Eblan Browser" \
       "Start Eblanity" \
       "Start local AI (ollama)" \
       "Connect to Wi-Fi" \
       "Share this console with a phone" \
-      "Mount installed Oparysh at /mnt" \
-      "Chroot into installed Oparysh" \
+      "Mount installed system at /mnt" \
+      "Chroot into installed system" \
       "Update tools" \
       "Exit to shell") || return 0
 
@@ -84,8 +102,8 @@ menu() {
     "Start local AI (ollama)") ollama serve & sleep 1; ollama run llama3.2 ;;
     "Connect to Wi-Fi") impala ;;
     "Share this console with a phone") oparysh-chinila-share ;;
-    "Mount installed Oparysh at /mnt") oparysh-chinila-mount ;;
-    "Chroot into installed Oparysh") chroot_installed ;;
+    "Mount installed system at /mnt") oparysh-chinila-mount ;;
+    "Chroot into installed system") chroot_installed ;;
     "Update tools") update_tools ;;
     "Exit to shell") return 0 ;;
     esac
