@@ -1,0 +1,18 @@
+#!/bin/bash
+# Boot the newest Oparysh Chinila ISO (or the one given) in QEMU.
+
+set -euo pipefail
+
+ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+
+if [[ $# -eq 0 || $1 == -* ]]; then
+  iso=$(\ls -t "$ROOT"/release/*.iso 2>/dev/null | head -n1 || true)
+  [[ -n $iso ]] || { echo "No ISO in $ROOT/release; run bin/oparysh-make first." >&2; exit 1; }
+  set -- "$iso" "$@"
+fi
+
+if command -v passt >/dev/null && [[ " $* " != *" --no-network "* && " $* " != *" -- "* ]]; then
+  set -- "$@" --no-network -- -netdev passt,id=net0,tcp-ports=7681-7682 -device virtio-net-pci,netdev=net0
+fi
+
+exec "$ROOT/omarchy-iso/bin/omarchy-iso-boot" "$@"
