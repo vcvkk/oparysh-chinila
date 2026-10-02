@@ -20,7 +20,6 @@ trap 'rm -rf "$TMP"' EXIT
 ZIP_URL="${EBLAN_ZIP_URL:-https://update.riba.click/eb/r/lastest.zip}"
 EBLANITY_URL="${EBLANITY_URL:-https://eblansoft.ru/upd/eblanityCLI/eblanity}"
 HF_BASE="${EBLANITY_HF_BASE:-https://huggingface.co/EBLANSoft/eblangpt-coder/resolve/main}"
-# Skip huge model with EBLANITY_SKIP_MODEL=1 (dev builds only).
 SKIP_MODEL="${EBLANITY_SKIP_MODEL:-0}"
 
 log() { printf '[vendor-eblan] %s\n' "$*"; }
@@ -33,7 +32,8 @@ download() {
   log "GET $url"
   curl -fL --retry 5 --retry-delay 5 --connect-timeout 30 \
     -o "$dest" "$url"
-  [[ -s $dest ]] || { echo "empty download: $url" >&2; exit 1; }
+  [[ -s $dest ]] || { echo "empty download: $url" >&2; return 1; }
+  return 0
 }
 
 log "Downloading EBLAN Browser from $ZIP_URL"
@@ -53,55 +53,46 @@ chmod 755 "$LIB/eblanity.bin"
 if [[ $SKIP_MODEL != 1 ]]; then
   log "Downloading offline model $MODEL_NAME (~3GB) — this takes a while"
   mkdir -p "$MODEL_SHARE"
-  # Weights + tokenizer/config so eblama can convert/run without network.
-  for f in model.safetensors tokenizer.json tokenizer_config.json config.json generation_config.json chat_template.jinja; do
+  download "$HF_BASE/model.safetensors" "$MODEL_SHARE/model.safetensors"
+  log "  model.safetensors $(du -h "$MODEL_SHARE/model.safetensors" | cut -f1)"
+  for f in tokenizer.json tokenizer_config.json config.json generation_config.json chat_template.jinja; do
     if download "$HF_BASE/$f" "$MODEL_SHARE/$f"; then
       log "  ok $f ($(du -h "$MODEL_SHARE/$f" | cut -f1))"
     else
-      # optional small files may 404
       rm -f "$MODEL_SHARE/$f"
-      log "  skip $f (not on hub)"
+      log "  skip $f"
     fi
   done
   [[ -s $MODEL_SHARE/model.safetensors ]] || {
-    echo "vendor-eblan: model.safetensors missing after download" >&2
+    echo "vendor-eblan: model.safetensors missing" >&2
     exit 1
   }
-  # Seed root home so first boot finds models without copying 3GB.
   mkdir -p "$(dirname "$ROOT_HOME_MODELS")"
   rm -rf "$ROOT_HOME_MODELS"
   ln -sfn "/usr/share/eblanity/models/$MODEL_NAME" "$ROOT_HOME_MODELS"
-  # Marker so wrapper knows models are present.
   mkdir -p "$AIROOTFS/root/.eblanity"
   echo "$MODEL_NAME" >"$AIROOTFS/root/.eblanity/default-model"
-  log "Model installed under /usr/share/eblanity/models/$MODEL_NAME"
+  log "Model at /usr/share/eblanity/models/$MODEL_NAME"
 else
   log "EBLANITY_SKIP_MODEL=1 — not baking weights"
 fi
 
 cat >"$BIN/eblanity" <<'EOF'
 #!/usr/bin/env bash
-# Offline-first eblanity: -no-update; wire vendored models into $HOME.
 set -euo pipefail
 REAL=/usr/local/lib/eblanity/eblanity.bin
 [[ -x $REAL ]] || { echo "eblanity: missing $REAL" >&2; exit 1; }
-
 HOME="${HOME:-/root}"
 SHARE_MODELS=/usr/share/eblanity/models
 mkdir -p "$HOME/.eblanity/models"
-
 if [[ -d $SHARE_MODELS ]]; then
   for d in "$SHARE_MODELS"/*; do
     [[ -d $d ]] || continue
     name=$(basename "$d")
     target="$HOME/.eblanity/models/$name"
-    if [[ ! -e $target ]]; then
-      ln -sfn "$d" "$target"
-    fi
+    [[ -e $target ]] || ln -sfn "$d" "$target"
   done
 fi
-
-# Prefer local model; never check for CLI updates.
 exec "$REAL" -no-update -local-model eblangpt-coder "$@"
 EOF
 chmod 755 "$BIN/eblanity"
@@ -134,6 +125,4 @@ done
 
 log "Done"
 ls -lh "$BIN/eblan" "$BIN/eblanity" "$LIB/eblanity.bin" "$OPT/EBLAN.py" || true
-if [[ -f $MODEL_SHARE/model.safetensors ]]; then
-  ls -lh "$MODEL_SHARE/model.safetensors"
-fi
+[[ -f $MODEL_SHARE/model.safetensors ]] && ls -lh "$MODEL_SHARE/model.safetensors"
