@@ -89,7 +89,13 @@ libva-mesa-driver
 intel-media-driver
 mesa-utils
 
-# Hypr3D plugin build deps (sources under /usr/src/Hypr3D)
+# Wi-Fi: Arch dropped prebuilt broadcom-wl (2026-09-02) in favor of broadcom-wl-dkms.
+# Need headers + dkms so the module builds for the live kernel.
+dkms
+linux-headers
+broadcom-wl-dkms
+
+# Hypr3D plugin build deps (sources under /usr/src/Hypr3D; upstream 0.5.0+)
 cmake
 gcc
 pkgconf
