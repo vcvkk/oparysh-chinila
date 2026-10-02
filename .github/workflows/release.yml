@@ -129,7 +129,8 @@ jobs:
           check_x /usr/local/bin/oparysh-build-hypr3d
           check_x /usr/local/bin/oparysh-hypr3d-apply-config
           check /opt/eblan-browser/EBLAN.py
-          check /root/.config/hypr/hyprland.conf
+          # Canonical config lives under /usr/share; session seeds ~/.config at runtime
+          check /usr/share/oparysh-chinila/hypr/hyprland.conf
           check /usr/src/Hypr3D/CMakeLists.txt
           check /usr/share/oparysh-chinila/hypr3d/telegram-checks-skybox.png
           check /usr/share/oparysh-chinila/hypr3d/window-overlay.png
