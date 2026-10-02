@@ -1,6 +1,5 @@
 # Primary Oparysh Chinila session: Hyprland on tty1.
-# Kernel cmdline still uses omarchy.rescue=kms so GRUB entries stay valid.
-# If Hyprland fails, OnFailure starts the plain autologin getty.
+# Boot with oparysh.rescue=kms (legacy omarchy.rescue=kms still accepted).
 
 [Unit]
 Description=Oparysh Chinila Hyprland on tty1
@@ -11,7 +10,8 @@ After=seatd.service
 Before=getty.target
 OnFailure=omarchy-rescue-getty.service
 IgnoreOnIsolate=yes
-ConditionKernelCommandLine=omarchy.rescue=kms
+ConditionKernelCommandLine=|oparysh.rescue=kms
+ConditionKernelCommandLine=|omarchy.rescue=kms
 ConditionPathExists=/dev/tty0
 
 [Service]
@@ -27,6 +27,7 @@ StandardOutput=journal
 StandardError=journal
 Environment=XDG_SESSION_TYPE=wayland
 Environment=XDG_CURRENT_DESKTOP=Hyprland
+Environment=HOME=/root
 ExecStart=/usr/local/bin/oparysh-hyprland-session
 Restart=on-failure
 RestartSec=2
