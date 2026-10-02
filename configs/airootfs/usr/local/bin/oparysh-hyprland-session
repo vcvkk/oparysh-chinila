@@ -12,7 +12,16 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$uid}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-# Ensure seatd is up (needed for DRM without logind session on some live boots).
+# Seed Hyprland config (airootfs /root/.config sometimes does not land in squashfs).
+HYPR_SRC=/usr/share/oparysh-chinila/hypr/hyprland.conf
+HYPR_DST="${HOME:-/root}/.config/hypr/hyprland.conf"
+if [[ -f $HYPR_SRC ]]; then
+  mkdir -p "$(dirname "$HYPR_DST")"
+  if [[ ! -f $HYPR_DST ]]; then
+    cp -f "$HYPR_SRC" "$HYPR_DST"
+  fi
+fi
+
 if command -v seatd >/dev/null 2>&1; then
   if ! pgrep -x seatd >/dev/null 2>&1; then
     seatd -g video >/dev/null 2>&1 &
@@ -20,7 +29,6 @@ if command -v seatd >/dev/null 2>&1; then
   fi
 fi
 
-# PipeWire stack for audio (best-effort).
 if command -v pipewire >/dev/null 2>&1; then
   pipewire >/dev/null 2>&1 &
   pipewire-pulse >/dev/null 2>&1 &
