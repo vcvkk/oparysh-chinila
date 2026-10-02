@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clone Hypr3D; bake Apple ✅ skybox; local window overlay only.
+# Clone Hypr3D (0.5.0+: locations, physics); bake Apple ✅ skybox; local overlay.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -7,12 +7,23 @@ DEST="$ROOT/configs/airootfs/usr/src/Hypr3D"
 ASSETS="$ROOT/configs/airootfs/usr/share/oparysh-chinila/hypr3d"
 export ASSETS
 REPO_URL="${HYPR3D_URL:-https://github.com/samine825/Hypr3D.git}"
+# Prefer explicit ref: tag v0.5.0 if present, else main (0.5.0 landed 2026-10-01).
+HYPR3D_REF="${HYPR3D_REF:-main}"
 PKG="$ROOT/packaging/hypr3d"
 
-echo "[vendor-hypr3d] Cloning $REPO_URL -> $DEST"
+echo "[vendor-hypr3d] Cloning $REPO_URL ($HYPR3D_REF) -> $DEST"
 rm -rf "$DEST"
 mkdir -p "$(dirname "$DEST")" "$ASSETS"
-git clone --depth 1 "$REPO_URL" "$DEST"
+
+if ! git clone --depth 1 --branch "$HYPR3D_REF" "$REPO_URL" "$DEST"; then
+  echo "[vendor-hypr3d] branch/tag $HYPR3D_REF failed, trying main" >&2
+  rm -rf "$DEST"
+  git clone --depth 1 --branch main "$REPO_URL" "$DEST"
+fi
+REV=$(git -C "$DEST" rev-parse HEAD)
+REV_SHORT=$(git -C "$DEST" rev-parse --short HEAD)
+echo "$REV" >"$ASSETS/hypr3d-source.rev"
+echo "[vendor-hypr3d] source $REV_SHORT ($REV)"
 rm -rf "$DEST/.git"
 
 echo "[vendor-hypr3d] Fetching Apple ✅ (U+2705) + baking skybox"
@@ -110,8 +121,10 @@ if [[ -f $PKG/telegram-checks-skybox.png ]]; then
   cp -f "$PKG/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
 fi
 
-cat >"$ASSETS/README.txt" <<'EOF'
+cat >"$ASSETS/README.txt" <<EOF
 Oparysh Chinila / Hypr3D assets
+Hypr3D source rev: $REV_SHORT (full: $REV)
+Upstream: https://github.com/samine825/Hypr3D (0.5.0+ locations/physics)
 window-overlay.png — from packaging/hypr3d/window-overlay.png or .b64.d parts
 EOF
 
