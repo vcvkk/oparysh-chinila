@@ -1,4 +1,4 @@
-# Live packages on top of Arch releng / Omarchy base.
+# Live packages on top of Arch releng base.
 
 # Local AI (halal). No Claude, no Codex, no OpenCode.
 ollama
