@@ -1,13 +1,10 @@
 #!/bin/bash
 
-# Layer Omarchy Rescue onto an omarchy-iso checkout: the rescue files, the
-# extra packages, and the rescue boot entries. By default the stock installer
-# stays exactly as it is, alongside rescue. With --rescue-only, its boot entries
-# are dropped too, for the rescue-only ISO (builder/build-rescue-only.sh).
-# Every edit is checked afterwards, so a change upstream that moves one of the
-# anchors fails the build here instead of shipping an ISO with no rescue entry.
+# Layer Oparysh Chinila onto an iso checkout: rescue files, extra packages,
+# and boot entries. By default the stock installer stays alongside rescue.
+# With --rescue-only, installer boot entries are dropped.
 #
-#   builder/apply-rescue.sh [--rescue-only] <omarchy-iso checkout>
+#   builder/apply-rescue.sh [--rescue-only] <iso-checkout>
 
 set -euo pipefail
 
@@ -18,11 +15,11 @@ if [[ ${1:-} == --rescue-only ]]; then
 fi
 
 RESCUE_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
-ISO=$(realpath "${1:?usage: apply-rescue.sh [--rescue-only] <omarchy-iso checkout>}")
+ISO=$(realpath "${1:?usage: apply-rescue.sh [--rescue-only] <iso-checkout>}")
 CONFIGS=$ISO/configs
 
-RESCUE_ARGS="omarchy.rescue=kms cow_spacesize=50%"
-RESCUE_BASIC_ARGS="omarchy.rescue=tty cow_spacesize=50% nomodeset"
+RESCUE_ARGS="oparysh.rescue=kms cow_spacesize=50%"
+RESCUE_BASIC_ARGS="oparysh.rescue=tty cow_spacesize=50% nomodeset"
 
 fail() {
   echo "apply-rescue: $*" >&2
@@ -37,12 +34,20 @@ expect() {
 # Files and packages.
 cp -a "$RESCUE_ROOT/configs/airootfs/." "$CONFIGS/airootfs/"
 cp "$RESCUE_ROOT/configs/rescue.packages" "$CONFIGS/rescue.packages"
+mkdir -p "$CONFIGS/airootfs/usr/share/oparysh-chinila"
 for mirror in stable rc edge; do
-  cp "$CONFIGS/pacman-online-$mirror.conf" "$CONFIGS/airootfs/usr/share/omarchy-rescue/"
+  if [[ -f $CONFIGS/pacman-online-$mirror.conf ]]; then
+    cp "$CONFIGS/pacman-online-$mirror.conf" "$CONFIGS/airootfs/usr/share/oparysh-chinila/"
+  fi
+done
+# keep legacy path if something still looks there
+mkdir -p "$CONFIGS/airootfs/usr/share/omarchy-rescue" 2>/dev/null || true
+for mirror in stable rc edge; do
+  if [[ -f $CONFIGS/pacman-online-$mirror.conf ]]; then
+    cp "$CONFIGS/pacman-online-$mirror.conf" "$CONFIGS/airootfs/usr/share/omarchy-rescue/" 2>/dev/null || true
+  fi
 done
 
-# Rescue packages join the live environment's package list, which also puts
-# them in the offline mirror mkarchiso installs the live root from.
 build=$ISO/builder/build-iso.sh
 anchor='printf '"'"'%s\n'"'"' "${arch_packages[@]}" >> "$build_cache_dir/packages.x86_64"'
 expect "$build" "$anchor"
@@ -57,34 +62,28 @@ mv "$build.new" "$build"
 chmod +x "$build"
 expect "$build" "/configs/rescue.packages"
 
-# Until omacom/omarchy-iso#196 lands: arch-mact2 replaced apple-bcm-firmware
-# with apple-bcm-firmware-fetcher, and the stock build fails resolving the old
-# name. Same mapping as that PR; skipped once upstream carries it.
 if ! grep -q 'apple-bcm-firmware-fetcher' "$build"; then
   sed -i "s|sed 's/^broadcom-wl\$/broadcom-wl-dkms/'|sed -e 's/^broadcom-wl\$/broadcom-wl-dkms/' -e 's/^apple-bcm-firmware\$/apple-bcm-firmware-fetcher/'|" "$build"
   expect "$build" "apple-bcm-firmware-fetcher"
 fi
 
-# The installer wizard must not start in a rescue boot, even on the fallback
-# console where tty1 autologs in the way it does for an install.
 script=$CONFIGS/airootfs/root/.automated_script.sh
 anchor='[[ $(tty) == /dev/tty1 ]] || exit 0'
 expect "$script" "$anchor"
 ANCHOR=$anchor awk '
   { print }
-  $0 == ENVIRON["ANCHOR"] { print "grep -qw omarchy.rescue /proc/cmdline && exit 0" }
+  $0 == ENVIRON["ANCHOR"] { print "grep -qwE '\''oparysh\\.rescue|omarchy\\.rescue'\'' /proc/cmdline && exit 0" }
 ' "$script" >"$script.new"
 mv "$script.new" "$script"
-expect "$script" "grep -qw omarchy.rescue /proc/cmdline && exit 0"
+expect "$script" "oparysh.rescue"
 
-# ISO identity and file modes.
 profile=$CONFIGS/profiledef.sh
 if [[ -n $RESCUE_ONLY ]]; then
-  iso_name=omarchy-rescue
-  iso_application="Omarchy Rescue"
+  iso_name=oparysh-chinila
+  iso_application="Oparysh Chinila"
 else
-  iso_name=omarchy-with-rescue
-  iso_application="Omarchy Installer and Rescue"
+  iso_name=oparysh-chinila-with-installer
+  iso_application="Oparysh Chinila + Installer"
 fi
 sed -i \
   -e "s/^iso_name=.*/iso_name=\"$iso_name\"/" \
@@ -92,7 +91,7 @@ sed -i \
   "$profile"
 {
   echo
-  echo "# Omarchy Rescue"
+  echo "# Oparysh Chinila"
   echo "file_permissions+=("
   for bin in "$RESCUE_ROOT"/configs/airootfs/usr/local/bin/*; do
     echo "  [\"/usr/local/bin/${bin##*/}\"]=\"0:0:755\""
@@ -100,12 +99,7 @@ sed -i \
   echo ")"
 } >>"$profile"
 expect "$profile" "iso_name=\"$iso_name\""
-expect "$profile" '["/usr/local/bin/omarchy-rescue"]="0:0:755"'
 
-# GRUB (UEFI, and loopback for Ventoy-style boots): add two rescue entries,
-# cloned from the stock Omarchy entry so they boot the same kernel with the
-# same arguments, make rescue the default, and show the menu. Rescue-only drops
-# the installer's own entries.
 add_grub_entries() {
   local cfg=$1
   expect "$cfg" 'menuentry "Omarchy (%ARCH%, ${archiso_platform})"'
@@ -132,21 +126,21 @@ add_grub_entries() {
     !collecting { print }
     collecting && /^}/ {
       collecting = 0; done = 1
-      emit("Omarchy Rescue", "omarchy-rescue", rescue, 0)
-      emit("Omarchy Rescue, basic console", "omarchy-rescue-basic", basic, 1)
+      emit("Oparysh Chinila", "oparysh-rescue", rescue, 0)
+      emit("Oparysh Chinila, basic console", "oparysh-rescue-basic", basic, 1)
       if (!rescue_only) for (i = 1; i <= n; i++) print block[i]
     }
   ' "$cfg" >"$cfg.new"
   mv "$cfg.new" "$cfg"
   sed -i \
-    -e 's/^default=archlinux$/default=omarchy-rescue/' \
+    -e 's/^default=archlinux$/default=oparysh-rescue/' \
     -e 's/^timeout=0$/timeout=10/' \
     -e 's/^timeout_style=hidden$/timeout_style=menu/' \
     "$cfg"
-  expect "$cfg" "--id 'omarchy-rescue'"
-  expect "$cfg" "--id 'omarchy-rescue-basic'"
+  expect "$cfg" "--id 'oparysh-rescue'"
+  expect "$cfg" "--id 'oparysh-rescue-basic'"
   expect "$cfg" "$RESCUE_ARGS"
-  expect "$cfg" "default=omarchy-rescue"
+  expect "$cfg" "default=oparysh-rescue"
   expect "$cfg" "timeout=10"
   if [[ -n $RESCUE_ONLY ]] && grep -q -- "--id 'archlinux" "$cfg"; then
     fail "installer entries left in ${cfg#"$ISO"/} for a rescue-only ISO"
@@ -155,27 +149,25 @@ add_grub_entries() {
 add_grub_entries "$CONFIGS/grub/grub.cfg"
 add_grub_entries "$CONFIGS/grub/loopback.cfg"
 
-# Syslinux (BIOS): the same two entries ahead of the installer (or alone, for
-# rescue-only), rescue default.
 syslinux=$CONFIGS/syslinux/archiso_sys-linux.cfg
 append=$(awk '/^LABEL arch64$/ { found = 1 } found && /^APPEND / { sub(/^APPEND /, ""); print; exit }' "$syslinux")
 [[ -n $append ]] || fail "no APPEND line for LABEL arch64 in ${syslinux#"$ISO"/}"
 kernel_lines=$(awk '/^LABEL arch64$/ { found = 1 } found && /^(LINUX|INITRD) / { print } found && /^APPEND / { exit }' "$syslinux")
 {
   cat <<CFG
-LABEL omarchyrescue
+LABEL oparyshrescue
 TEXT HELP
-Boot Omarchy Rescue: a live console with rescue tools and AI agents.
+Boot Oparysh Chinila: live Hyprland with rescue tools.
 ENDTEXT
-MENU LABEL Omarchy ^Rescue (x86_64, BIOS)
+MENU LABEL Oparysh ^Chinila (x86_64, BIOS)
 $kernel_lines
 APPEND $append $RESCUE_ARGS
 
-LABEL omarchyrescuebasic
+LABEL oparyshrescuebasic
 TEXT HELP
-Boot Omarchy Rescue on the plain text console, for displays kmscon can't drive.
+Boot Oparysh Chinila on the plain text console.
 ENDTEXT
-MENU LABEL Omarchy Rescue, ^basic console (x86_64, BIOS)
+MENU LABEL Oparysh Chinila, ^basic console (x86_64, BIOS)
 $kernel_lines
 APPEND ${append/ quiet splash/} $RESCUE_BASIC_ARGS
 
@@ -183,8 +175,8 @@ CFG
   [[ -n $RESCUE_ONLY ]] || cat "$syslinux"
 } >"$syslinux.new"
 mv "$syslinux.new" "$syslinux"
-sed -i 's/^DEFAULT arch64$/DEFAULT omarchyrescue/' "$CONFIGS/syslinux/archiso_sys.cfg"
-expect "$syslinux" "LABEL omarchyrescuebasic"
-expect "$CONFIGS/syslinux/archiso_sys.cfg" "DEFAULT omarchyrescue"
+sed -i 's/^DEFAULT arch64$/DEFAULT oparyshrescue/' "$CONFIGS/syslinux/archiso_sys.cfg"
+expect "$syslinux" "LABEL oparyshrescuebasic"
+expect "$CONFIGS/syslinux/archiso_sys.cfg" "DEFAULT oparyshrescue"
 
-echo "Applied Omarchy Rescue to $ISO"
+echo "Applied Oparysh Chinila to $ISO"
