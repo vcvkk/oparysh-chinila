@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clone Hypr3D; bake skybox from real Apple ✅ (U+2705) emoji bitmaps.
+# Clone Hypr3D; bake Apple ✅ skybox; fetch window overlay for Hypr3D panels.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -7,6 +7,8 @@ DEST="$ROOT/configs/airootfs/usr/src/Hypr3D"
 ASSETS="$ROOT/configs/airootfs/usr/share/oparysh-chinila/hypr3d"
 export ASSETS
 REPO_URL="${HYPR3D_URL:-https://github.com/samine825/Hypr3D.git}"
+# Default: user-supplied overlay (Google Drive, anyone-with-link)
+OVERLAY_URL="${WINDOW_OVERLAY_URL:-https://drive.google.com/uc?export=download&id=1s6-XY4SaOq_6h_xlEAy_6nY0o6fM9sBj}"
 
 echo "[vendor-hypr3d] Cloning $REPO_URL -> $DEST"
 rm -rf "$DEST"
@@ -18,7 +20,6 @@ echo "[vendor-hypr3d] Fetching Apple ✅ (U+2705) + baking skybox"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Real Apple platform art (iamcal/emoji-data img-apple-*), not a redraw.
 for size in 160 64; do
   url="https://raw.githubusercontent.com/iamcal/emoji-data/master/img-apple-${size}/2705.png"
   if curl -fsSL -o "$WORK/2705-${size}.png" "$url"; then
@@ -80,16 +81,39 @@ for y in range(H):
 out = os.path.join(assets, "telegram-checks-skybox.png")
 img.convert("RGB").save(out, "PNG", optimize=True)
 print("skybox", out, os.path.getsize(out))
-
-g = check.resize((128, 128), Image.Resampling.LANCZOS)
-ov = Image.new("RGBA", (1024, 1024), (26, 27, 38, 100))
-ov.paste(g, (448, 448), g)
-ov.save(os.path.join(assets, "window-overlay.png"), "PNG")
 PY
 
+# --- window overlay: packaging override > Drive URL > tiny placeholder ---
+echo "[vendor-hypr3d] Window overlay"
 if [[ -f $ROOT/packaging/hypr3d/window-overlay.png ]]; then
   cp -f "$ROOT/packaging/hypr3d/window-overlay.png" "$ASSETS/window-overlay.png"
+  echo "[vendor-hypr3d] Using packaging/hypr3d/window-overlay.png"
+elif curl -fsSL -L -o "$WORK/overlay-src.bin" "$OVERLAY_URL"; then
+  ASSETS="$ASSETS" WORK="$WORK" python3 - <<'PY'
+from PIL import Image
+import os
+src = os.path.join(os.environ["WORK"], "overlay-src.bin")
+out = os.path.join(os.environ["ASSETS"], "window-overlay.png")
+im = Image.open(src).convert("RGBA")
+im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+im.save(out, "PNG", optimize=True)
+print("overlay from URL", out, os.path.getsize(out), im.size)
+PY
+  echo "[vendor-hypr3d] Fetched overlay from WINDOW_OVERLAY_URL / Google Drive"
+else
+  echo "[vendor-hypr3d] WARN: no overlay source, writing placeholder" >&2
+  python3 - <<PY
+from PIL import Image, ImageDraw
+import os
+out = os.path.join("$ASSETS", "window-overlay.png")
+im = Image.new("RGBA", (1024, 1024), (26, 27, 38, 100))
+d = ImageDraw.Draw(im)
+d.rectangle([8, 8, 1015, 1015], outline=(84, 172, 225, 140), width=4)
+d.text((280, 500), "window-overlay.png", fill=(192, 202, 245, 200))
+im.save(out, "PNG")
+PY
 fi
+
 if [[ -f $ROOT/packaging/hypr3d/telegram-checks-skybox.png ]]; then
   cp -f "$ROOT/packaging/hypr3d/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
 fi
@@ -97,10 +121,11 @@ fi
 cat >"$ASSETS/README.txt" <<'EOF'
 Oparysh Chinila / Hypr3D assets
 
-telegram-checks-skybox.png  — 360 panorama tiled with Apple Color Emoji ✅ (U+2705)
-                              from iamcal/emoji-data img-apple-* (real Apple art)
+telegram-checks-skybox.png  — 360 panorama, Apple Color Emoji ✅ (U+2705)
 apple-check-2705.png        — single glyph sample
-window-overlay.png          — replace via packaging/hypr3d/window-overlay.png
+window-overlay.png          — image on top of windows / 3D panels
+                              priority: packaging/hypr3d/window-overlay.png
+                              else WINDOW_OVERLAY_URL (default: Google Drive)
 EOF
 
 mkdir -p "$ROOT/configs/airootfs/usr/local/bin" "$ROOT/configs/airootfs/usr/lib/hypr3d"
@@ -133,7 +158,7 @@ if hl and hl.plugin and hl.plugin.hypr3d then
   })
 end
 LUA
-echo "[hypr3d] skybox=$SKY (Apple ✅) overlay=$OVERLAY"
+echo "[hypr3d] skybox=$SKY overlay=$OVERLAY"
 EOF
 chmod +x "$ROOT/configs/airootfs/usr/local/bin/oparysh-hypr3d-apply-config"
 
