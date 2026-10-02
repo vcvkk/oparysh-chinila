@@ -1,36 +1,38 @@
 # Hypr3D assets (Oparysh Chinila)
 
-At ISO build time `builder/vendor-hypr3d.sh` generates a **Telegram double-check** equirectangular skybox and a placeholder window overlay.
+At ISO build time `builder/vendor-hypr3d.sh`:
 
-## Override with your own files
+1. Bakes a **360° skybox** tiled with real **Apple Color Emoji ✅** (U+2705).
+2. Installs **window-overlay.png** (image for 3D window quads / panels).
 
-Put files here before `bin/omarchy-rescue-make`:
+## Window overlay priority
+
+1. `packaging/hypr3d/window-overlay.png` (if present in the repo at build)
+2. Else download from `WINDOW_OVERLAY_URL` (default: your Google Drive photo)
+3. Else a small placeholder
+
+Default Drive id is baked into the vendor script. Override at build:
+
+```bash
+export WINDOW_OVERLAY_URL='https://drive.google.com/uc?export=download&id=YOUR_FILE_ID'
+bin/omarchy-rescue-make
+```
+
+## Optional local overrides
 
 | File | Role |
 |------|------|
-| `window-overlay.png` | Your image — intended blend on every 3D window quad |
-| `telegram-checks-skybox.png` | Optional custom 360° panorama (equirectangular, e.g. 4096×2048) |
-| `map.glb` / `map.gltf` | Optional 3D room model (wire via `map.path` later) |
+| `window-overlay.png` | Your image on every 3D window quad |
+| `telegram-checks-skybox.png` | Custom 360° panorama (e.g. 4096×2048 equirect) |
+| `map.glb` / `map.gltf` | Optional room model (`map.path`) |
 
-They are copied into the live image as:
+Live paths:
 
 ```
 /usr/share/oparysh-chinila/hypr3d/telegram-checks-skybox.png
 /usr/share/oparysh-chinila/hypr3d/window-overlay.png
 ```
 
-Hypr3D config (no grid floor, panorama only):
+Skybox is applied by `oparysh-hypr3d-apply-config` (`panorama`, `grid = false`).
 
-```lua
-hl.plugin.hypr3d.config({
-  world = {
-    panorama = "/usr/share/oparysh-chinila/hypr3d/telegram-checks-skybox.png",
-    grid = false,
-  },
-  map = { path = "" },
-})
-```
-
-Applied by `oparysh-hypr3d-apply-config` after the plugin loads.
-
-**Note:** Window overlay blending needs a matching plugin build; the skybox works with upstream Hypr3D as soon as `panorama` is set.
+**Note:** Overlay blending depends on the Hypr3D plugin build supporting the overlay texture slot; the panorama skybox works with upstream Hypr3D once `panorama` is set.
