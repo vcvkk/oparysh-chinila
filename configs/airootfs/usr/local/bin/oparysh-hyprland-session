@@ -2,6 +2,7 @@
 # Oparysh Chinila: start Hyprland as the primary rescue session on tty1.
 set -euo pipefail
 
+export HOME="${HOME:-/root}"
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
@@ -12,14 +13,12 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$uid}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-# Seed Hyprland config (airootfs /root/.config sometimes does not land in squashfs).
+# Always seed/refresh config from the packaged copy (survives airootfs quirks).
 HYPR_SRC=/usr/share/oparysh-chinila/hypr/hyprland.conf
-HYPR_DST="${HOME:-/root}/.config/hypr/hyprland.conf"
+HYPR_DST="$HOME/.config/hypr/hyprland.conf"
 if [[ -f $HYPR_SRC ]]; then
   mkdir -p "$(dirname "$HYPR_DST")"
-  if [[ ! -f $HYPR_DST ]]; then
-    cp -f "$HYPR_SRC" "$HYPR_DST"
-  fi
+  cp -f "$HYPR_SRC" "$HYPR_DST"
 fi
 
 if command -v seatd >/dev/null 2>&1; then
