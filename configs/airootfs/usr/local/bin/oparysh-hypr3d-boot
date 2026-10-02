@@ -1,0 +1,31 @@
+#!/bin/bash
+# Build (if needed), load Hypr3D, apply skybox, enable 3D mode by default.
+set -euo pipefail
+
+SO=/usr/lib/hypr3d/hypr3d.so
+
+# Wait until hyprctl talks to the compositor.
+for _ in $(seq 1 50); do
+  if hyprctl version >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+done
+
+if [[ ! -f $SO ]]; then
+  if command -v oparysh-build-hypr3d >/dev/null 2>&1; then
+    oparysh-build-hypr3d >/tmp/oparysh-hypr3d-build.log 2>&1 || true
+  fi
+fi
+
+if [[ -f $SO ]]; then
+  hyprctl plugin load "$SO" 2>/dev/null || true
+  sleep 0.4
+  oparysh-hypr3d-apply-config 2>/dev/null || true
+  # Turn 3D on by default (user can Super+F12 to toggle off).
+  hyprctl eval 'if hl and hl.plugin and hl.plugin.hypr3d then hl.plugin.hypr3d.toggle() end' 2>/dev/null \
+    || hyprctl dispatch hypr3d:toggle 2>/dev/null \
+    || true
+else
+  echo "[oparysh-hypr3d-boot] no $SO — build offline with oparysh-build-hypr3d" >&2
+fi
