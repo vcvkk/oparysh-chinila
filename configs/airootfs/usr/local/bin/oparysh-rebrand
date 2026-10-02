@@ -1,0 +1,37 @@
+#!/bin/bash
+# Replace leftover OMARCHY branding that packages may have written.
+set -euo pipefail
+
+SRC=/usr/share/oparysh-chinila/logo.txt
+[[ -f $SRC ]] || exit 0
+
+for dest in \
+  /usr/share/omarchy/logo.txt \
+  /usr/share/omarchy/logo-mark.txt \
+  /etc/issue \
+  /etc/motd; do
+  dir=$(dirname "$dest")
+  [[ -d $dir ]] || continue
+  case $dest in
+  */logo*.txt)
+    cp -f "$SRC" "$dest" 2>/dev/null || true
+    ;;
+  /etc/issue)
+    printf 'Oparysh Chinila \\r (\\l)\n\n' >"$dest" 2>/dev/null || true
+    ;;
+  /etc/motd)
+    printf 'Oparysh Chinila\n' >"$dest" 2>/dev/null || true
+    ;;
+  esac
+done
+
+# Text on common banner files under /usr/share/omarchy
+if [[ -d /usr/share/omarchy ]]; then
+  while IFS= read -r -d '' f; do
+    if grep -qF 'OMARCHY' "$f" 2>/dev/null; then
+      sed -i 's/OMARCHY/OPARYSH/g; s/Omarchy/Oparysh/g; s/omarchy/oparysh/g' "$f" 2>/dev/null || true
+    fi
+  done < <(find /usr/share/omarchy -type f \( -name '*.txt' -o -name '*.md' \) -print0 2>/dev/null)
+fi
+
+exit 0
