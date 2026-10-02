@@ -1,0 +1,1 @@
+Sorted *.b64part files are concatenated and base64-decoded to window-overlay.png at ISO build.
