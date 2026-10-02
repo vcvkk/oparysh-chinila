@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clone Hypr3D; bake Apple ✅ skybox; local window-overlay.png only.
+# Clone Hypr3D; bake Apple ✅ skybox; local window overlay only.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -82,14 +82,29 @@ img.convert("RGB").save(out, "PNG", optimize=True)
 print("skybox", out, os.path.getsize(out))
 PY
 
-# --- window overlay: ONLY packaging/hypr3d/window-overlay.png ---
+# --- window overlay: local packaging only ---
 echo "[vendor-hypr3d] Window overlay (local only)"
-if [[ ! -f $PKG/window-overlay.png ]]; then
-  echo "[vendor-hypr3d] ERROR: missing packaging/hypr3d/window-overlay.png" >&2
+if [[ -f $PKG/window-overlay.png ]]; then
+  cp -f "$PKG/window-overlay.png" "$ASSETS/window-overlay.png"
+  echo "[vendor-hypr3d] packaging/hypr3d/window-overlay.png"
+elif [[ -d $PKG/window-overlay.b64.d ]]; then
+  python3 - <<PY
+import base64, glob, os
+from PIL import Image
+from io import BytesIO
+parts = sorted(glob.glob("$PKG/window-overlay.b64.d/*.b64part"))
+if not parts:
+    raise SystemExit("no b64 parts")
+b64 = "".join(open(p).read().strip() for p in parts)
+raw = base64.b64decode(b64)
+im = Image.open(BytesIO(raw)).convert("RGBA")
+im.save("$ASSETS/window-overlay.png", "PNG")
+print("overlay from b64.d", im.size, len(raw), "parts", len(parts))
+PY
+else
+  echo "[vendor-hypr3d] ERROR: need packaging/hypr3d/window-overlay.png or window-overlay.b64.d/" >&2
   exit 1
 fi
-cp -f "$PKG/window-overlay.png" "$ASSETS/window-overlay.png"
-echo "[vendor-hypr3d] Installed packaging/hypr3d/window-overlay.png"
 
 if [[ -f $PKG/telegram-checks-skybox.png ]]; then
   cp -f "$PKG/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
@@ -97,9 +112,7 @@ fi
 
 cat >"$ASSETS/README.txt" <<'EOF'
 Oparysh Chinila / Hypr3D assets
-
-telegram-checks-skybox.png  — 360 panorama, Apple Color Emoji ✅ (U+2705)
-window-overlay.png          — only from packaging/hypr3d/window-overlay.png
+window-overlay.png — from packaging/hypr3d/window-overlay.png or .b64.d parts
 EOF
 
 mkdir -p "$ROOT/configs/airootfs/usr/local/bin" "$ROOT/configs/airootfs/usr/lib/hypr3d"
