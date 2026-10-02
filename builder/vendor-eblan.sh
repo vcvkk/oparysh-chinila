@@ -1,19 +1,13 @@
 #!/bin/bash
-# Download EBLAN Browser + Eblanity CLI into configs/airootfs so the ISO is
-# fully offline for both tools once built. Run from repo root before apply-rescue.
-#
-#   builder/vendor-eblan.sh
-#
-# Sources:
-#   Browser zip: https://update.riba.click/eb/r/lastest.zip
-#   Eblanity:    https://eblansoft.ru/upd/eblanityCLI/eblanity
-
+# Download EBLAN Browser + Eblanity CLI into configs/airootfs.
+# Eblanity is wrapped so first run does not try to pull multi-GB models.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
 AIROOTFS=$ROOT/configs/airootfs
 OPT=$AIROOTFS/opt/eblan-browser
 BIN=$AIROOTFS/usr/local/bin
+LIB=$AIROOTFS/usr/local/lib/eblanity
 DESKTOP_DIR=$AIROOTFS/usr/share/applications
 ICON_BASE=$AIROOTFS/usr/share/icons/hicolor
 TMP=$(mktemp -d)
@@ -40,7 +34,6 @@ log "Extracting into $OPT"
 rm -rf "$OPT"
 mkdir -p "$OPT"
 unzip -q "$TMP/lastest.zip" -d "$TMP/extract"
-# zip has a single top-level dir (R3/ etc.)
 src=$(find "$TMP/extract" -mindepth 1 -maxdepth 1 -type d | head -n1)
 if [[ -z ${src:-} ]]; then
   echo "vendor-eblan: no top-level dir in zip" >&2
@@ -49,17 +42,48 @@ fi
 cp -a "$src"/. "$OPT/"
 
 log "Downloading Eblanity CLI from $EBLANITY_URL"
-mkdir -p "$BIN"
-curl -fsSL -o "$BIN/eblanity" "$EBLANITY_URL"
+mkdir -p "$BIN" "$LIB"
+curl -fsSL -o "$LIB/eblanity.bin" "$EBLANITY_URL"
+chmod 755 "$LIB/eblanity.bin"
+
+log "Writing offline eblanity wrapper"
+cat >"$BIN/eblanity" <<'EOF'
+#!/usr/bin/env bash
+# Offline-first launcher. Real binary lives in /usr/local/lib/eblanity/.
+# -no-update: never phone home for CLI updates.
+# First-run model download is declined automatically (ISO has no 3GB model baked).
+set -euo pipefail
+REAL=/usr/local/lib/eblanity/eblanity.bin
+if [[ ! -x $REAL ]]; then
+  echo "eblanity: missing $REAL (vendor-eblan.sh not run at build?)" >&2
+  exit 1
+fi
+
+# Skip interactive "download model now?" on first launch when no TTY answer expected.
+if [[ ! -d ${HOME:-/root}/.eblanity/models ]] && [[ -t 0 ]]; then
+  # Prefer local ollama if present instead of multi-GB eblama pull.
+  if command -v ollama >/dev/null 2>&1; then
+    echo "eblanity: models not vendored; use ollama for offline AI, or run once online to fetch eblangpt." >&2
+  fi
+fi
+
+# Always refuse interactive download prompt by answering n when setup would ask.
+if [[ ! -d ${HOME:-/root}/.eblanity ]]; then
+  exec /usr/bin/script -qfc "$REAL -no-update $*" /dev/null <<'ANS'
+n
+ANS
+fi
+
+exec "$REAL" -no-update "$@"
+EOF
 chmod 755 "$BIN/eblanity"
 
 log "Writing eblan launcher"
-cat > "$BIN/eblan" <<'EOF'
+cat >"$BIN/eblan" <<'EOF'
 #!/usr/bin/env bash
-# Offline launcher for EBLAN Browser (vendored into the ISO).
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
 if [[ ! -f /opt/eblan-browser/EBLAN.py ]]; then
-  echo "eblan: /opt/eblan-browser/EBLAN.py missing (vendor-eblan.sh not run at build?)" >&2
+  echo "eblan: /opt/eblan-browser/EBLAN.py missing" >&2
   exit 1
 fi
 exec /usr/bin/python /opt/eblan-browser/EBLAN.py "$@"
@@ -68,12 +92,12 @@ chmod 755 "$BIN/eblan"
 
 log "Desktop entry + icons"
 mkdir -p "$DESKTOP_DIR"
-cat > "$DESKTOP_DIR/eblan-browser.desktop" <<'EOF'
+cat >"$DESKTOP_DIR/eblan-browser.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=EBLAN Browser
 GenericName=EBLAN Browser
-Comment=EBLAN Browser - халяль снаружи, передоз внутри
+Comment=EBLAN Browser
 Exec=/usr/local/bin/eblan %U
 Icon=eblan-browser
 Terminal=false
@@ -81,7 +105,6 @@ Categories=Network;WebBrowser;
 MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
 StartupNotify=true
 StartupWMClass=EBLAN Browser
-Keywords=browser;internet;web;eblan;
 EOF
 
 for size in 64 128 256; do
@@ -94,4 +117,4 @@ for size in 64 128 256; do
 done
 
 log "Done. Browser -> $OPT , eblanity -> $BIN/eblanity"
-ls -lh "$BIN/eblan" "$BIN/eblanity" "$OPT/EBLAN.py"
+ls -lh "$BIN/eblan" "$BIN/eblanity" "$LIB/eblanity.bin" "$OPT/EBLAN.py"
