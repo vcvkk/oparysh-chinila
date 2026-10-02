@@ -1,80 +1,136 @@
-# Oparysh Chinila
+# oparysh chinila ✅
 
-Rescue ISO: **Hyprland** desktop with Eblan Browser, Eblanity, Ollama, and a pile of recovery tools. Boots straight into a graphical session.
+da. ✅
 
-Download from [Releases](https://github.com/vcvkk/oparysh-chinila/releases) (or Actions artifacts), verify `.sha256`, write to USB.
+rescue iso с hyprland. eblan. eblanity. ollama. куча тулз для восстановления. ✅
 
-## Boot entries
+загрузка сразу в графон. ✅
 
-- **Oparysh Chinila / Omarchy Rescue** (default): **Hyprland** on tty1 (full Wayland stack).
-- **basic console**: plain getty + `nomodeset` if graphics die.
+**это не вайбкод.** ✅
 
-## Desktop (Hyprland)
+**все сам.** ✅
 
-Shipped stack includes Hyprland, waybar, kitty, wofi, thunar, pipewire, portals, fonts, GPU userspace (mesa/vulkan), Firefox, Eblan, etc.
+никаких клаудов. никаких кодексов. никаких «сгенерируй репо». ☝️
 
-Config: `/root/.config/hypr/hyprland.conf`
+качал. правил. вендорил. собирал. ✅
 
-| Bind | Action |
-|------|--------|
-| Super+Return | kitty |
-| Super+B | eblan |
-| Super+F | firefox |
-| Super+E | thunar |
-| Super+R | wofi |
-| Super+F12 | Hypr3D toggle (if plugin loaded) |
+---
 
-### Hypr3D
+## скачать ✅
 
-Sources from [samine825/Hypr3D](https://github.com/samine825/Hypr3D) are vendored to `/usr/src/Hypr3D` at build time.
+[releases](https://github.com/vcvkk/oparysh-chinila/releases) или actions artifacts. ✅
+
+проверь `.sha256`. ✅
+
+запиши на флешку. ✅
+
+---
+
+## бут ✅
+
+- **oparysh chinila / omarchy rescue** (дефолт) — hyprland на tty1. полный wayland. ✅
+- **basic console** — getty + `nomodeset` если видео умерло. ✅
+
+---
+
+## десктоп ✅
+
+hyprland. waybar. kitty. wofi. thunar. pipewire. порталы. шрифты. mesa/vulkan. firefox. eblan. ✅
+
+конфиг: `/root/.config/hypr/hyprland.conf` ✅
+
+| бинд | что |
+|------|-----|
+| super+return | kitty ✅ |
+| super+b | eblan ✅ |
+| super+f | firefox ✅ |
+| super+e | thunar ✅ |
+| super+r | wofi ✅ |
+| super+f12 | hypr3d toggle ✅ |
+
+### hypr3d ✅
+
+сорцы с [samine825/hypr3d](https://github.com/samine825/Hypr3D) кладутся в `/usr/src/hypr3d` на билде. ✅
+
+скайбокс из apple ✅. оверлей окон — своя картинка. ✅
 
 ```bash
-# Offline build against installed hyprland headers (best-effort; plugin pins 0.56.2)
 oparysh-build-hypr3d
-# then restart Hyprland or: hyprctl plugin load /usr/lib/hypr3d/hypr3d.so
+# потом рестарт hyprland или:
+hyprctl plugin load /usr/lib/hypr3d/hypr3d.so
+```
 
-# Online alternative
+онлайн вариант:
+
+```bash
 hyprpm add https://github.com/samine825/Hypr3D
 hyprpm enable Hypr3D
 ```
 
-## Offline Eblan stack
+---
 
-| Component | On ISO |
-|-----------|--------|
-| EBLAN Browser | `/opt/eblan-browser` + `eblan` |
-| Eblanity CLI | `eblanity` |
+## оффлайн eblan ✅
 
-## Using it
+| что | где |
+|-----|-----|
+| eblan browser | `/opt/eblan-browser` + `eblan` ✅ |
+| eblanity cli | `eblanity` ✅ |
+
+без интернета после бута. ✅
+
+---
+
+## как юзать ✅
 
 ```
-impala                  Wi-Fi TUI
-oparysh-chinila-mount   unlock/mount install at /mnt
-arch-chroot /mnt
-eblan / eblanity / ollama
-oparysh-chinila         text menu (in a terminal)
+impala                  # wifi tui ✅
+oparysh-chinila-mount   # unlock/mount в /mnt ✅
+arch-chroot /mnt        # ✅
+eblan / eblanity / ollama  # ✅
+oparysh-chinila         # текстовое меню ✅
 ```
 
-## Building
+---
+
+## сборка ✅
 
 ```bash
-bin/omarchy-rescue-make                   # rescue-only ISO
-bin/omarchy-rescue-make --with-installer  # installer + rescue
-bin/omarchy-rescue-boot                   # QEMU
+bin/omarchy-rescue-make                   # только rescue ✅
+bin/omarchy-rescue-make --with-installer  # installer + rescue ✅
+bin/omarchy-rescue-boot                   # qemu ✅
 ```
 
-Build needs network once (Eblan, Hypr3D sources, Arch packages). ISO may exceed 2 GiB with the full desktop — use Actions artifacts if GitHub Releases rejects the upload.
+на билде нужен инет один раз (eblan. hypr3d. arch пакеты). ✅
 
-## Layout
+iso может быть >2gb. тогда бери из actions. ✅
+
+broadcom-wl-dkms + linux-headers уже в пакетах. ✅
+
+---
+
+## раскладка ✅
 
 ```
-configs/rescue.packages              packages (Hyprland + Eblan + tools)
-configs/airootfs/root/.config/hypr/  Hyprland config
-configs/airootfs/usr/src/Hypr3D/     vendored plugin sources
-builder/vendor-eblan.sh
-builder/vendor-hypr3d.sh
+configs/rescue.packages              # пакеты ✅
+configs/airootfs/root/.config/hypr/  # hyprland ✅
+configs/airootfs/usr/src/Hypr3D/     # плагин ✅
+builder/vendor-eblan.sh              # ✅
+builder/vendor-hypr3d.sh             # ✅
+packaging/hypr3d/                    # оверлей / скайбокс ✅
 ```
 
-## License
+---
 
-MIT for this repo packaging. Upstream licenses apply to software on the ISO.
+## лицензия ✅
+
+mit на упаковку репо. ✅
+
+на софт внутри iso — лицензии апстрима. ✅
+
+---
+
+не вайбкод. ✅
+
+все сам. ✅
+
+да. ✅
