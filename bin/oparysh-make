@@ -1,0 +1,77 @@
+#!/bin/bash
+# Build Oparysh Chinila into ./release.
+#
+#   bin/oparysh-make [--edge|--rc] [--with-installer] [iso-make flags]
+
+set -euo pipefail
+
+ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+BUILD=$ROOT/build/iso-src
+RELEASE=$ROOT/release
+
+with_installer=
+mirror=stable
+iso_make_args=(--no-boot-offer --keep-pkg-cache)
+for arg in "$@"; do
+  case $arg in
+  --with-installer) with_installer=1 ;;
+  --keep-pkg-cache | --no-boot-offer) ;;
+  *)
+    case $arg in
+    --edge | --dev | --quattro) mirror=edge ;;
+    --rc) mirror=rc ;;
+    esac
+    iso_make_args+=("$arg")
+    ;;
+  esac
+done
+
+"$ROOT/builder/vendor-eblan.sh"
+"$ROOT/builder/vendor-hypr3d.sh"
+
+git -C "$ROOT" submodule update --init --recursive
+
+rm -rf "$BUILD"
+mkdir -p "${BUILD%/*}" "$RELEASE"
+git clone --quiet "$ROOT/omarchy-iso" "$BUILD"
+git -C "$BUILD" -c protocol.file.allow=always submodule update --init --quiet \
+  --reference "$ROOT/omarchy-iso/archiso"
+
+DOCKER=(docker)
+docker version &>/dev/null || DOCKER=(sudo docker)
+
+if [[ -n $with_installer ]]; then
+  "$ROOT/builder/apply-rescue.sh" "$BUILD"
+
+  host_cache='  DOCKER_ARGS+=(-v "/var/cache/pacman/pkg:/var/cache/pacman/pkg")'
+  grep -qxF "$host_cache" "$BUILD/bin/omarchy-iso-make" || {
+    echo "upstream iso-make cache mount changed" >&2
+    exit 1
+  }
+  HOST_CACHE=$host_cache awk '$0 == ENVIRON["HOST_CACHE"] { print "  :"; next } { print }' \
+    "$BUILD/bin/omarchy-iso-make" >"$BUILD/bin/omarchy-iso-make.new"
+  mv "$BUILD/bin/omarchy-iso-make.new" "$BUILD/bin/omarchy-iso-make"
+  chmod +x "$BUILD/bin/omarchy-iso-make"
+  bash -n "$BUILD/bin/omarchy-iso-make"
+
+  (cd "$BUILD" && ./bin/omarchy-iso-make "${iso_make_args[@]}")
+else
+  "$ROOT/builder/apply-rescue.sh" --rescue-only "$BUILD"
+
+  mkdir -p "$BUILD/release"
+  "${DOCKER[@]}" run --rm --privileged \
+    -e "OMARCHY_MIRROR=$mirror" \
+    -e "HOST_UID=$(id -u)" \
+    -e "HOST_GID=$(id -g)" \
+    -v "$BUILD/release:/out" \
+    -v "$BUILD/archiso:/archiso:ro" \
+    -v "$BUILD/builder:/builder:ro" \
+    -v "$BUILD/configs:/configs:ro" \
+    -v "$ROOT/builder/build-rescue-only.sh:/build-rescue-only.sh:ro" \
+    archlinux/archlinux:latest /build-rescue-only.sh
+fi
+
+iso=$(\ls -t "$BUILD"/release/*.iso | head -n1)
+mv -f "$iso" "$RELEASE/"
+echo
+echo "Built $RELEASE/${iso##*/} ($(du -h "$RELEASE/${iso##*/}" | cut -f1))"
