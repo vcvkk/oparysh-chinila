@@ -1,28 +1,25 @@
 # Hypr3D assets (Oparysh Chinila)
 
-At ISO build time `builder/vendor-hypr3d.sh`:
+`builder/vendor-hypr3d.sh` at ISO build:
 
-1. Bakes a **360° skybox** tiled with real **Apple Color Emoji ✅** (U+2705).
-2. Installs **window-overlay.png** from **local packaging only** (no network).
+1. Bakes **360° skybox** with Apple Color Emoji ✅ (U+2705).
+2. Copies **only** `packaging/hypr3d/window-overlay.png` into the image.
 
-## Window overlay (local only)
+No Google Drive, no URL fallbacks.
 
-Put one of these under `packaging/hypr3d/` before build:
+## Required
 
-| File | Role |
-|------|------|
-| `window-overlay.png` | Preferred |
-| `window-overlay.jpg` | Converted to PNG at build |
-| `window-overlay.jpg.b64` | Base64 of JPEG (decoded at build) |
-| `window-overlay.b64.d/*.b64part` | Split base64 parts (concatenated then decoded) |
+```
+packaging/hypr3d/window-overlay.png
+```
 
-If none exist, the vendor script **fails** (no Drive / no placeholder).
+If missing, the build fails.
 
-## Optional skybox override
+## Optional
 
-| File | Role |
-|------|------|
-| `telegram-checks-skybox.png` | Custom 360° panorama |
+```
+packaging/hypr3d/telegram-checks-skybox.png   # custom panorama
+```
 
 Live paths:
 
