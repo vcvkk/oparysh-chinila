@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clone Hypr3D; bake Apple ✅ skybox; fetch window overlay for Hypr3D panels.
+# Clone Hypr3D; bake Apple ✅ skybox; install local window overlay only.
 set -euo pipefail
 
 ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -7,8 +7,7 @@ DEST="$ROOT/configs/airootfs/usr/src/Hypr3D"
 ASSETS="$ROOT/configs/airootfs/usr/share/oparysh-chinila/hypr3d"
 export ASSETS
 REPO_URL="${HYPR3D_URL:-https://github.com/samine825/Hypr3D.git}"
-# Default: user-supplied overlay (Google Drive, anyone-with-link)
-OVERLAY_URL="${WINDOW_OVERLAY_URL:-https://drive.google.com/uc?export=download&id=1s6-XY4SaOq_6h_xlEAy_6nY0o6fM9sBj}"
+PKG="$ROOT/packaging/hypr3d"
 
 echo "[vendor-hypr3d] Cloning $REPO_URL -> $DEST"
 rm -rf "$DEST"
@@ -83,39 +82,35 @@ img.convert("RGB").save(out, "PNG", optimize=True)
 print("skybox", out, os.path.getsize(out))
 PY
 
-# --- window overlay: packaging override > Drive URL > tiny placeholder ---
-echo "[vendor-hypr3d] Window overlay"
-if [[ -f $ROOT/packaging/hypr3d/window-overlay.png ]]; then
-  cp -f "$ROOT/packaging/hypr3d/window-overlay.png" "$ASSETS/window-overlay.png"
+# --- window overlay: ONLY local packaging/hypr3d/ ---
+echo "[vendor-hypr3d] Window overlay (local packaging only)"
+if [[ -f $PKG/window-overlay.png ]]; then
+  cp -f "$PKG/window-overlay.png" "$ASSETS/window-overlay.png"
   echo "[vendor-hypr3d] Using packaging/hypr3d/window-overlay.png"
-elif curl -fsSL -L -o "$WORK/overlay-src.bin" "$OVERLAY_URL"; then
-  ASSETS="$ASSETS" WORK="$WORK" python3 - <<'PY'
-from PIL import Image
-import os
-src = os.path.join(os.environ["WORK"], "overlay-src.bin")
-out = os.path.join(os.environ["ASSETS"], "window-overlay.png")
-im = Image.open(src).convert("RGBA")
-im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
-im.save(out, "PNG", optimize=True)
-print("overlay from URL", out, os.path.getsize(out), im.size)
-PY
-  echo "[vendor-hypr3d] Fetched overlay from WINDOW_OVERLAY_URL / Google Drive"
-else
-  echo "[vendor-hypr3d] WARN: no overlay source, writing placeholder" >&2
+elif [[ -f $PKG/window-overlay.jpg ]]; then
   python3 - <<PY
-from PIL import Image, ImageDraw
-import os
-out = os.path.join("$ASSETS", "window-overlay.png")
-im = Image.new("RGBA", (1024, 1024), (26, 27, 38, 100))
-d = ImageDraw.Draw(im)
-d.rectangle([8, 8, 1015, 1015], outline=(84, 172, 225, 140), width=4)
-d.text((280, 500), "window-overlay.png", fill=(192, 202, 245, 200))
-im.save(out, "PNG")
+from PIL import Image
+im = Image.open("$PKG/window-overlay.jpg").convert("RGBA")
+im.save("$ASSETS/window-overlay.png", "PNG")
+print("overlay from jpg", im.size)
 PY
+elif [[ -f $PKG/window-overlay.jpg.b64 ]]; then
+  python3 - <<PY
+import base64
+from PIL import Image
+from io import BytesIO
+raw = base64.b64decode(open("$PKG/window-overlay.jpg.b64").read().strip())
+im = Image.open(BytesIO(raw)).convert("RGBA")
+im.save("$ASSETS/window-overlay.png", "PNG")
+print("overlay from jpg.b64", im.size, len(raw))
+PY
+else
+  echo "[vendor-hypr3d] ERROR: put packaging/hypr3d/window-overlay.png (or .jpg / .jpg.b64)" >&2
+  exit 1
 fi
 
-if [[ -f $ROOT/packaging/hypr3d/telegram-checks-skybox.png ]]; then
-  cp -f "$ROOT/packaging/hypr3d/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
+if [[ -f $PKG/telegram-checks-skybox.png ]]; then
+  cp -f "$PKG/telegram-checks-skybox.png" "$ASSETS/telegram-checks-skybox.png"
 fi
 
 cat >"$ASSETS/README.txt" <<'EOF'
@@ -123,9 +118,8 @@ Oparysh Chinila / Hypr3D assets
 
 telegram-checks-skybox.png  — 360 panorama, Apple Color Emoji ✅ (U+2705)
 apple-check-2705.png        — single glyph sample
-window-overlay.png          — image on top of windows / 3D panels
-                              priority: packaging/hypr3d/window-overlay.png
-                              else WINDOW_OVERLAY_URL (default: Google Drive)
+window-overlay.png          — ONLY from packaging/hypr3d/window-overlay.png
+                              (or .jpg / .jpg.b64 at build)
 EOF
 
 mkdir -p "$ROOT/configs/airootfs/usr/local/bin" "$ROOT/configs/airootfs/usr/lib/hypr3d"
