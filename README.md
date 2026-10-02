@@ -12,6 +12,8 @@ rescue iso с hyprland. eblan. eblanity. ollama. куча тулз для вос
 
 никаких клаудов. никаких кодексов. никаких «сгенерируй репо». ☝️
 
+никакого omarchy. ☝️
+
 качал. правил. вендорил. собирал. ✅
 
 ---
@@ -28,7 +30,7 @@ rescue iso с hyprland. eblan. eblanity. ollama. куча тулз для вос
 
 ## бут ✅
 
-- **oparysh chinila / omarchy rescue** (дефолт) — hyprland на tty1. полный wayland. ✅
+- **oparysh chinila** (дефолт) — hyprland на tty1. полный wayland. ✅
 - **basic console** — getty + `nomodeset` если видео умерло. ✅
 
 ---
@@ -50,7 +52,7 @@ hyprland. waybar. kitty. wofi. thunar. pipewire. порталы. шрифты. m
 
 ### hypr3d ✅
 
-сорцы с [samine825/hypr3d](https://github.com/samine825/Hypr3D) кладутся в `/usr/src/hypr3d` на билде. ✅
+сорцы с [samine825/hypr3d](https://github.com/samine825/Hypr3D) кладутся в `/usr/src/Hypr3D` на билде. ✅
 
 скайбокс из apple ✅. оверлей окон — своя картинка. ✅
 
@@ -95,9 +97,9 @@ oparysh-chinila         # текстовое меню ✅
 ## сборка ✅
 
 ```bash
-bin/omarchy-rescue-make                   # только rescue ✅
-bin/omarchy-rescue-make --with-installer  # installer + rescue ✅
-bin/omarchy-rescue-boot                   # qemu ✅
+bin/oparysh-make                   # только rescue ✅
+bin/oparysh-make --with-installer  # installer + rescue ✅
+bin/oparysh-boot                   # qemu ✅
 ```
 
 на билде нужен инет один раз (eblan. hypr3d. arch пакеты). ✅
